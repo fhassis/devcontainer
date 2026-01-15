@@ -1,18 +1,43 @@
-FROM debian:trixie-slim
+# Set base image
+FROM docker.io/debian:trixie-slim
 
+# Set non-interactive frontend for apt
 ENV DEBIAN_FRONTEND=noninteractive
 
 # Install core tools
-RUN apt-get update && apt-get install -y --no-install-recommends \
+RUN \
+    # Install dependencies and tools \
+    apt-get update && apt-get install -y --no-install-recommends \
     git \
+    git-lfs \
     fish \
     eza \
+    starship \
     curl \
     ca-certificates && \
-    rm -rf /var/lib/apt/lists/*
+    # Clean up apt cache to reduce image size
+    rm -rf /var/lib/apt/lists/* && \
+    \
+    # Configure Git LFS
+    git lfs install --system
 
-# Install Starship binary
-RUN curl -sS https://starship.rs/install.sh | sh -s -- -y
+# Configure prompt and shortcuts for all users
+RUN \
+    # 1. Create global fish directory structure \
+    mkdir -p /etc/fish/conf.d /etc/fish/functions && \
+    \
+    # 2. Setup Starship globally \
+    starship preset nerd-font-symbols -o /etc/starship.toml && \
+    echo "set -gx STARSHIP_CONFIG /etc/starship.toml" > /etc/fish/conf.d/starship.fish && \
+    echo "starship init fish | source" >> /etc/fish/conf.d/starship.fish && \
+    \
+    # 3. Create global shortcuts (functions) \
+    echo "function ls; eza --icons --group-directories-first \$argv; end" > /etc/fish/functions/ls.fish && \
+    echo "function ll; eza -l --icons --group-directories-first \$argv; end" > /etc/fish/functions/ll.fish && \
+    echo "function la; eza -la --icons --group-directories-first \$argv; end" > /etc/fish/functions/la.fish && \
+    \
+    # 4. Set static global greeting \
+    echo "set -g fish_greeting '✨ Welcome to the DevContainer! 🚀'" > /etc/fish/conf.d/greeting.fish
 
 # Setup non-root user and essential directory tree
 ARG USERNAME=vscode
@@ -24,10 +49,5 @@ RUN useradd -m -s /usr/bin/fish $USERNAME && \
 USER $USERNAME
 WORKDIR /home/$USERNAME
 
-# Consolidated Config: Set Starship preset and write Fish config
-RUN starship preset nerd-font-symbols -o ~/.config/starship.toml && \
-    echo "starship init fish | source" > ~/.config/fish/config.fish && \
-    echo "alias ls='eza --icons --group-directories-first'" >> ~/.config/fish/config.fish && \
-    echo "alias ll='eza -lh --icons --grid-group-directories-first'" >> ~/.config/fish/config.fish
-
+# Start fish shell by default
 CMD ["fish"]
