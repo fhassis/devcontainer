@@ -24,21 +24,4 @@ A lightweight, high-performance development container based on **Debian Trixie S
 
 ## 🛠 Local Setup
 
-To use this image in VS Code, ensure your `.devcontainer/devcontainer.json` includes the persistent volume mount and font settings:
-
-```json
-{
-    "name": "Personal Dev Environment",
-    "image": "fhassis/devcontainer:trixie",
-    "mounts": [
-        "source=fish-history,target=/home/vscode/.local/share/fish,type=volume"
-    ],
-    "customizations": {
-        "vscode": {
-            "settings": {
-                "terminal.integrated.defaultProfile.linux": "fish"
-            }
-        }
-    },
-    "remoteUser": "vscode"
-}
+To use this image in VS Code, ensure your `.devcontainer/devcontainer.json` includes the persistent volume mount. An example can be found in [devcontainer.json](./devcontainer/devcontainer.json).
