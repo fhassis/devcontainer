@@ -42,7 +42,11 @@ RUN \
 
 # Setup non-root user (Standard UID 1000)
 ARG USERNAME=vscode
-RUN useradd -m -s /usr/bin/fish $USERNAME
+RUN useradd -m -s /usr/bin/fish $USERNAME && \
+    # create the starship cache directory
+    mkdir -p /home/$USERNAME/.cache/starship && \
+    # set ownership to the non-root user
+    chown -R $USERNAME:$USERNAME /home/$USERNAME
 
 # Switch to non-root user
 USER $USERNAME
