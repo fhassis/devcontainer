@@ -1,10 +1,7 @@
 {
     "name": "my-devcontainer",
-    "build": {
-        "dockerfile": "Dockerfile"
-    },
+    "image": "docker.io/fhassis/devcontainer-base:latest",
     "runArgs": [
-        // fix permission issues with mounted volumes in podman and vscode user
         "--userns=keep-id"
     ],
     "remoteUser": "vscode",
