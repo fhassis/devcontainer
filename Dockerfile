@@ -25,7 +25,7 @@ RUN \
 # Configure prompt and shortcuts for all users
 RUN \
     # 1. Create global fish directory structure \
-    mkdir -p /etc/fish/conf.d /etc/fish/functions && \
+    mkdir -p /etc/fish/conf.d /etc/fish/functions /etc/fish/completions && \
     \
     # 2. Setup Starship globally \
     starship preset nerd-font-symbols -o /etc/starship.toml && \
