@@ -8,9 +8,10 @@
         "--userns=keep-id"
     ],
     "remoteUser": "vscode",
-    // "containerUser": "vscode",
     "mounts": [
-        "source=${localWorkspaceFolderBasename}-fish-history,target=/home/vscode/.local/share/fish,type=volume"
+        "source=${localWorkspaceFolderBasename}-fish-history,target=/home/vscode/.local/share/fish,type=volume",
+        "source=${localEnv:HOME}/.ssh,target=/home/vscode/.ssh,type=bind,consistency=cached",
+        "source=${localEnv:HOME}/.gitconfig,target=/home/vscode/.gitconfig,type=bind,consistency=cached"
     ],
     "customizations": {
         "vscode": {
