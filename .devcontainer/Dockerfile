@@ -14,6 +14,7 @@ RUN \
     eza \
     starship \
     curl \
+    openssh-client \
     ca-certificates && \
     # Clean up apt cache to reduce image size
     rm -rf /var/lib/apt/lists/* && \
