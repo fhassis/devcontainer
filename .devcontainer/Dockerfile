@@ -39,11 +39,9 @@ RUN \
     # 4. Set static global greeting \
     echo "set -g fish_greeting '✨ Welcome to the DevContainer! 🚀'" > /etc/fish/conf.d/greeting.fish
 
-# Setup non-root user and essential directory tree
+# Setup non-root user (Standard UID 1000)
 ARG USERNAME=vscode
-RUN useradd -m -s /usr/bin/fish $USERNAME && \
-    mkdir -p /home/$USERNAME/.config/fish /home/$USERNAME/.local/share/fish && \
-    chown -R $USERNAME:$USERNAME /home/$USERNAME/.config /home/$USERNAME/.local
+RUN useradd -m -s /usr/bin/fish $USERNAME
 
 # Switch to non-root user
 USER $USERNAME

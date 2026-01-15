@@ -1,4 +1,4 @@
-# Personal Dev Container (`debian:trixie-slim`)
+# DevContainer (`debian:trixie-slim`)
 
 A lightweight, high-performance development container based on **Debian Trixie Slim**. This image is designed for speed and a modern terminal experience.
 
@@ -11,6 +11,7 @@ A lightweight, high-performance development container based on **Debian Trixie S
     * `eza`: A modern replacement for `ls` with color-coding and icons.
 * **Core Utilities**
     * `git`: Essential for version control.
+    * `git-lfs`: Essential for version control of binary files.
     * `curl` & `ca-certificates`: For secure networking and tool installation.
 
 ## 🚀 Key Features

@@ -1,0 +1,22 @@
+{
+    "name": "my-devcontainer",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "runArgs": [
+        // fix permission issues with mounted volumes in podman and vscode user
+        "--userns=keep-id"
+    ],
+    "remoteUser": "vscode",
+    // "containerUser": "vscode",
+    "mounts": [
+        "source=${localWorkspaceFolderBasename}-fish-history,target=/home/vscode/.local/share/fish,type=volume"
+    ],
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "fish"
+            }
+        }
+    }
+}
