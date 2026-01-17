@@ -22,35 +22,26 @@ RUN \
     # Configure Git LFS
     git lfs install --system
 
-# Configure prompt and shortcuts for all users
+# Configure prompt and shortcuts for root user
 RUN \
-    # 1. Create global fish directory structure \
-    mkdir -p /etc/fish/conf.d /etc/fish/functions /etc/fish/completions && \
+    # 1. Create standard config directory structure \
+    mkdir -p /root/.config/fish/conf.d /root/.config/fish/functions /root/.config/fish/completions && \
     \
-    # 2. Setup Starship globally \
-    starship preset nerd-font-symbols -o /etc/starship.toml && \
-    echo "set -gx STARSHIP_CONFIG /etc/starship.toml" > /etc/fish/conf.d/starship.fish && \
-    echo "starship init fish | source" >> /etc/fish/conf.d/starship.fish && \
+    # 2. Setup Starship (Standard path: ~/.config/starship.toml) \
+    starship preset nerd-font-symbols -o /root/.config/starship.toml && \
+    echo "starship init fish | source" > /root/.config/fish/conf.d/starship.fish && \
     \
-    # 3. Create global shortcuts (functions) \
-    echo "function ls; eza --icons --group-directories-first \$argv; end" > /etc/fish/functions/ls.fish && \
-    echo "function ll; eza -l --icons --group-directories-first \$argv; end" > /etc/fish/functions/ll.fish && \
-    echo "function la; eza -la --icons --group-directories-first \$argv; end" > /etc/fish/functions/la.fish && \
+    # 3. Create shortcuts in standard function files \
+    echo "function ls; eza --icons --group-directories-first \$argv; end" > /root/.config/fish/functions/ls.fish && \
+    echo "function ll; eza -l --icons --group-directories-first \$argv; end" > /root/.config/fish/functions/ll.fish && \
+    echo "function la; eza -la --icons --group-directories-first \$argv; end" > /root/.config/fish/functions/la.fish && \
     \
-    # 4. Set static global greeting \
-    echo "set -g fish_greeting '✨ Welcome to the DevContainer! 🚀'" > /etc/fish/conf.d/greeting.fish
+    # 4. Set static greeting \
+    echo "set -g fish_greeting '✨ Welcome to the DevContainer! 🚀'" > /root/.config/fish/conf.d/greeting.fish
 
-# Setup non-root user (Standard UID 1000)
-ARG USERNAME=vscode
-RUN useradd -m -s /usr/bin/fish $USERNAME && \
-    # create the starship cache directory
-    mkdir -p /home/$USERNAME/.cache/starship && \
-    # set ownership to the non-root user
-    chown -R $USERNAME:$USERNAME /home/$USERNAME
-
-# Switch to non-root user
-USER $USERNAME
-WORKDIR /home/$USERNAME
+# Ensure workspaces root exists for DevContainer mounting
+RUN mkdir -p /workspaces
+WORKDIR /workspaces
 
 # Start fish shell by default
 CMD ["fish"]
