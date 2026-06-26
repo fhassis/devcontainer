@@ -8,10 +8,10 @@
 # =============================================================================
 
 # ---- pinned versions (bump here) -------------------------------------------
-ARG PYTHON_VERSION=3.14-slim-trixie
-ARG UV_VERSION=0.11.19
+ARG PYTHON_VERSION=3.14.6-slim-trixie
+ARG UV_VERSION=0.11.24
 ARG BUN_VERSION=1.3.14-slim
-ARG KUBECTL_VERSION=1.36.2
+ARG KUBECTL_VERSION=1.36.1
 ARG HELM_VERSION=3.17.0
 ARG K3D_VERSION=5.9.0
 ARG K9S_VERSION=0.51.0
@@ -49,12 +49,12 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates gnupg \
  && install -m 0755 -d /etc/apt/keyrings \
  # Docker CE — for docker-ce-cli
- && curl -fsSL https://download.docker.com/linux/debian/gpg \
+ && curl -fsSL --ipv4 --retry 5 --retry-delay 2 --retry-all-errors https://download.docker.com/linux/debian/gpg \
       | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
  && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian trixie stable" \
       > /etc/apt/sources.list.d/docker.list \
  # PostgreSQL PGDG — Trixie only ships up to pg17, we want the pinned major
- && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
+ && curl -fsSL --ipv4 --retry 5 --retry-delay 2 --retry-all-errors https://www.postgresql.org/media/keys/ACCC4CF8.asc \
       | gpg --dearmor -o /etc/apt/keyrings/pgdg.gpg \
  && echo "deb [signed-by=/etc/apt/keyrings/pgdg.gpg] https://apt.postgresql.org/pub/repos/apt trixie-pgdg main" \
       > /etc/apt/sources.list.d/pgdg.list \
@@ -79,23 +79,26 @@ ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 SHELL=/usr/bin/fish \
 COPY --from=uv /uv /uvx /bin/
 COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 
-# ---- single-binary tools with no clean apt repo: pinned downloads, one layer
-RUN arch=amd64 \
- && curl -fsSL "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${arch}/kubectl" \
-      -o /usr/local/bin/kubectl \
- && curl -fsSL "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${arch}.tar.gz" \
-      | tar -xz -C /tmp \
+# ---- single-binary tools with no clean apt repo: pinned downloads, one layer ----
+# Download to a file (with retries) THEN extract. `curl | tar` can't retry safely —
+# curl restarts the stream on retry, which corrupts tar. `--ipv4` avoids broken
+# IPv6 paths on CI runners (the "connection reset by peer" we hit); retries +
+# `--retry-all-errors` handle transient transport failures.
+RUN arch=amd64; \
+    dl="curl -fsSL --ipv4 --retry 5 --retry-delay 2 --retry-all-errors"; \
+    $dl "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${arch}/kubectl" -o /usr/local/bin/kubectl \
+ && $dl "https://get.helm.sh/helm-v${HELM_VERSION}-linux-${arch}.tar.gz" -o /tmp/helm.tgz \
+ && tar -xzf /tmp/helm.tgz -C /tmp \
  && mv "/tmp/linux-${arch}/helm" /usr/local/bin/helm \
- && curl -fsSL "https://github.com/k3d-io/k3d/releases/download/v${K3D_VERSION}/k3d-linux-${arch}" \
-      -o /usr/local/bin/k3d \
- && curl -fsSL "https://github.com/derailed/k9s/releases/download/v${K9S_VERSION}/k9s_Linux_${arch}.tar.gz" \
-      | tar -xz -C /tmp k9s \
+ && $dl "https://github.com/k3d-io/k3d/releases/download/v${K3D_VERSION}/k3d-linux-${arch}" -o /usr/local/bin/k3d \
+ && $dl "https://github.com/derailed/k9s/releases/download/v${K9S_VERSION}/k9s_Linux_${arch}.tar.gz" -o /tmp/k9s.tgz \
+ && tar -xzf /tmp/k9s.tgz -C /tmp k9s \
  && mv /tmp/k9s /usr/local/bin/k9s \
- && curl -fsSL "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_${arch}.tar.gz" \
-      | tar -xz -C /tmp \
+ && $dl "https://gitlab.com/gitlab-org/cli/-/releases/v${GLAB_VERSION}/downloads/glab_${GLAB_VERSION}_linux_${arch}.tar.gz" -o /tmp/glab.tgz \
+ && tar -xzf /tmp/glab.tgz -C /tmp \
  && mv /tmp/bin/glab /usr/local/bin/glab \
  && chmod +x /usr/local/bin/{kubectl,helm,k3d,k9s,glab} \
- && rm -rf "/tmp/linux-${arch}" /tmp/bin
+ && rm -rf "/tmp/linux-${arch}" /tmp/bin /tmp/*.tgz
 
 # ---- non-root user (UID/GID 1000 matches the typical host user) ----
 RUN groupadd --gid 1000 devcontainer \
@@ -118,7 +121,7 @@ RUN mkdir -p ~/.local/share/fish ~/.config/fish/completions \
 COPY config/config.fish /etc/fish/conf.d/config.fish
 
 # ---- Claude Code CLI (terminal `claude`), installed for the non-root user ----
-RUN curl -fsSL https://claude.ai/install.sh | bash
+RUN curl -fsSL --ipv4 --retry 5 --retry-delay 2 --retry-all-errors https://claude.ai/install.sh | bash
 
 # ---- entrypoint runs as root to align the docker group GID with the mounted
 #      socket; VS Code attaches as `devcontainer` via docker exec, separately.
