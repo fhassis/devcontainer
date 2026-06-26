@@ -56,7 +56,7 @@ RUN apt-get update \
  && apt-get install -y --no-install-recommends \
       git openssh-client make \
       fish starship eza \
-      docker-ce-cli \
+      docker-ce-cli docker-buildx-plugin docker-compose-plugin \
       "postgresql-client-${PG_MAJOR}" \
  # browser system libraries (NOT a browser binary) for headless Chromium, so the
  # per-project automation MCPs (Playwright / Chrome DevTools) run its chrome versions.
