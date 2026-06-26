@@ -115,8 +115,7 @@ RUN mkdir -p ~/.local/share/fish ~/.config/fish/completions \
  && kubectl completion fish > ~/.config/fish/completions/kubectl.fish \
  && helm    completion fish > ~/.config/fish/completions/helm.fish \
  && k3d     completion fish > ~/.config/fish/completions/k3d.fish \
- && { glab completion -s fish 2>/dev/null || glab completion fish; } \
-      > ~/.config/fish/completions/glab.fish
+ && glab    completion -s fish > ~/.config/fish/completions/glab.fish
 # bun has no `completion fish` subcommand (fish infers it from --help); k9s is a TUI.
 COPY config/config.fish /etc/fish/conf.d/config.fish
 

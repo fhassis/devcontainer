@@ -34,7 +34,7 @@ TUI with no completion.)
   docker socket to *operate* it (`kubectl`, `k3d image import`, `k9s`). The
   cluster does not run inside the container.
 - **Pinned versions.** All tool versions are `ARG`s at the top of the
-  [`Dockerfile`](./Dockerfile) — bump them there. uv and bun are copied from their
+  [`src/Dockerfile`](./src/Dockerfile) — bump them there. uv and bun are copied from their
   official images; the k8s tools and glab are pinned binary downloads.
 - **One apt layer.** A single `RUN` bootstraps the minimum to add repositories,
   registers the Docker and PostgreSQL-PGDG repos, does one `apt install`, and
@@ -64,14 +64,15 @@ with this image as the devcontainer service, exactly like the current setups.
 ## Build & publish
 
 CI ([`.gitlab-ci.yml`](./.gitlab-ci.yml)) builds and pushes to the project's GitLab
-Container Registry on the default branch (`:latest` + `:<short-sha>`) and on git
-tags (`:<tag>`). Pin projects to a tag, not `:latest`, so a base bump is explicit.
+Container Registry: a git tag publishes `:<tag>`; otherwise the default branch
+publishes `:latest`. Only commits that touch `src/` (the build context) rebuild —
+docs-only commits skip it. Pin projects to a tag, not `:latest`, so a bump is explicit.
 
 Local build for testing:
 
 ```bash
-docker build -t registry.gitlab.com/fhassis/devcontainer:dev .
+docker build -t registry.gitlab.com/fhassis/devcontainer:dev src
 ```
 
 > Built for `linux/amd64`. The k8s/glab binary URLs hardcode `amd64`; adjust the
-> `arch` in the Dockerfile for arm64.
+> `arch` in `src/Dockerfile` for arm64.
