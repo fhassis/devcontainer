@@ -1,14 +1,13 @@
 # =============================================================================
-# fhassis devcontainer base — Python 3.14 on Debian Trixie slim + a dev toolbelt.
+# fhassis devcontainer base — Bun on Debian Trixie slim (oven/bun) + a toolbelt.
 #
-# One image for every project: shell (fish/starship/eza), languages (uv, bun),
-# Kubernetes (kubectl/k3d/helm/k9s), Docker CLI, Postgres client, and glab.
+# One image for every project: shell, Bun, the Kubernetes/Docker/Postgres/git
+# toolbelt, and the system libraries headless Chromium needs.
 # Per-project bits (VS Code extensions, extra services, project-only tools) live
 # in each project's devcontainer.json — not here.
 # =============================================================================
 
 # ---- pinned versions (bump here) -------------------------------------------
-ARG PYTHON_VERSION=3.14.6-slim-trixie
 ARG UV_VERSION=0.11.24
 ARG BUN_VERSION=1.3.14-slim
 ARG KUBECTL_VERSION=1.36.1
@@ -18,16 +17,12 @@ ARG K9S_VERSION=0.51.0
 ARG GLAB_VERSION=1.105.0
 ARG PG_MAJOR=18
 
-# ---- pinned language binaries pulled from their official images (no apt) ----
+# ---- uv pulled from its official image (Astral's documented install path) ---
 FROM ghcr.io/astral-sh/uv:${UV_VERSION} AS uv
-FROM oven/bun:${BUN_VERSION} AS bun
 
 # =============================================================================
-# Python base (slim Trixie) — the same official image prod builds from, so the
-# dev Python matches prod. uv can still fetch other versions per-project
-# (downloads left enabled). Debian Trixie underneath, so the apt repos below
-# (docker, pgdg) are unchanged.
-FROM python:${PYTHON_VERSION}
+# Base = oven/bun (Debian Trixie slim).
+FROM oven/bun:${BUN_VERSION}
 
 # bash with pipefail so a failing `curl | tar` actually fails the build.
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
@@ -42,9 +37,7 @@ ARG K9S_VERSION
 ARG GLAB_VERSION
 
 # ---- everything apt, in ONE layer: bootstrap -> add repos -> install -> clean
-# Bootstrap only what's needed to add repositories (curl, ca-certificates, gpg),
-# register the third-party repos (Docker, PostgreSQL PGDG), then a single
-# apt install for Debian packages + those repos, and finally drop the apt cache.
+# Bootstrap curl/gpg, register the third-party repos, then a single apt install and drop the cache.
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates gnupg \
  && install -m 0755 -d /etc/apt/keyrings \
@@ -61,29 +54,26 @@ RUN apt-get update \
  # single install: Debian packages + the two repos above
  && apt-get update \
  && apt-get install -y --no-install-recommends \
-      git git-lfs openssh-client make \
+      git openssh-client make \
       fish starship eza \
-      locales libatomic1 \
       docker-ce-cli \
       "postgresql-client-${PG_MAJOR}" \
- && echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && locale-gen \
- && git lfs install --system \
- && rm -rf /var/lib/apt/lists/*
+ # browser system libraries (NOT a browser binary) for headless Chromium, so the
+ # per-project automation MCPs (Playwright / Chrome DevTools) run its chrome versions.
+ && bunx playwright install-deps chromium \
+ && rm -rf /var/lib/apt/lists/* /root/.bun/install/cache
 
-ENV LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8 SHELL=/usr/bin/fish \
+ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 SHELL=/usr/bin/fish \
     PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 UV_LINK_MODE=copy \
     STARSHIP_CONFIG=/home/devcontainer/.config/starship.toml \
     PATH=/home/devcontainer/.local/bin:$PATH
 
-# ---- languages: copy the pinned binaries from the official images ----
+# ---- Python tooling: uv ----
 COPY --from=uv /uv /uvx /bin/
-COPY --from=bun /usr/local/bin/bun /usr/local/bin/bun
 
 # ---- single-binary tools with no clean apt repo: pinned downloads, one layer ----
-# Download to a file (with retries) THEN extract. `curl | tar` can't retry safely —
-# curl restarts the stream on retry, which corrupts tar. `--ipv4` avoids broken
-# IPv6 paths on CI runners (the "connection reset by peer" we hit); retries +
-# `--retry-all-errors` handle transient transport failures.
+# Download to a file THEN extract (curl|tar can't retry safely); `--ipv4` + retries
+# dodge the broken-IPv6 "connection reset" we hit on CI runners.
 RUN arch=amd64; \
     dl="curl -fsSL --ipv4 --retry 5 --retry-delay 2 --retry-all-errors"; \
     $dl "https://dl.k8s.io/release/v${KUBECTL_VERSION}/bin/linux/${arch}/kubectl" -o /usr/local/bin/kubectl \
@@ -100,10 +90,11 @@ RUN arch=amd64; \
  && chmod +x /usr/local/bin/{kubectl,helm,k3d,k9s,glab} \
  && rm -rf "/tmp/linux-${arch}" /tmp/bin /tmp/*.tgz
 
-# ---- non-root user (UID/GID 1000 matches the typical host user) ----
-RUN groupadd --gid 1000 devcontainer \
- && useradd --uid 1000 --gid 1000 --create-home --shell /usr/bin/fish devcontainer \
- && groupadd --gid 999 docker \
+# ---- non-root user: rename oven/bun's preset user (uid/gid 1000) to `devcontainer`,
+#      shell fish; docker group GID is auto (the entrypoint aligns it to the socket). ----
+RUN groupmod -n devcontainer bun \
+ && usermod -l devcontainer -d /home/devcontainer -m -s /usr/bin/fish bun \
+ && groupadd docker \
  && usermod -aG docker devcontainer
 
 # ---- shell config + fish completions, as the non-root user ----
