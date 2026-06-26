@@ -1,6 +1,6 @@
 # devcontainer base
 
-One shared development image for all my projects. Instead of every repo carrying
+One shared development image for all personal projects. Instead of every repo carrying
 its own `dev` Dockerfile stage that re-installs the same toolchain, projects
 reference this image and add only their project-specific bits (VS Code
 extensions, extra services, project-only tools) in their `devcontainer.json`.
@@ -9,13 +9,13 @@ extensions, extra services, project-only tools) in their `devcontainer.json`.
 
 | Group | Tools |
 | :--- | :--- |
-| Shell & prompt | `fish`, `starship` (no-runtime-versions preset), `eza` (aliased to `ls`/`ll`/`la`) |
-| Version control | `git`, `git-lfs`, `glab` (GitLab CLI), `openssh-client` |
-| Languages | Python 3.14 (system), `uv` (+`uvx`), `bun` (JS/TS runtime) |
+| Shell & prompt | `fish`, `starship` (nerd-fonts preset), `eza` (aliased to `ls`/`ll`/`la`) |
+| Version control | `git`, `glab` (GitLab CLI),  |
+| Languages | Python 3.14 (system), `uv` (Python manager) (+`uvx`), `bun` (JS/TS runtime) |
 | Kubernetes | `kubectl`, `k3d`, `helm`, `k9s` |
 | Containers | `docker` CLI (docker-outside-of-docker) |
 | Database | `postgresql-client-18` (`psql`) |
-| Misc | `make`, `curl`, locales (`en_US.UTF-8`) |
+| Misc | `make`, `curl`, `openssh-client`, chromium dependencies (for MCP servers) |
 
 fish completions are pre-generated for uv, docker, kubectl, helm, k3d and glab.
 (bun has no `completion fish` subcommand — fish infers it from `--help`; k9s is a
