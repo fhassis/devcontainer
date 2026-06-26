@@ -1,17 +1,56 @@
 {
-    "name": "my-devcontainer",
-    "image": "docker.io/fhassis/devcontainer-base:latest",
-    "remoteUser": "root",
-    "mounts": [
-        "source=${localWorkspaceFolderBasename}-fish-history,target=/root/.local/share/fish,type=volume",
-        "source=${localEnv:HOME}/.ssh,target=/root/.ssh,type=bind,consistency=cached",
-        "source=${localEnv:HOME}/.gitconfig,target=/root/.gitconfig,type=bind,consistency=cached"
-    ],
-    "customizations": {
-        "vscode": {
-            "settings": {
-                "terminal.integrated.defaultProfile.linux": "fish"
-            }
-        }
-    }
+	// Example consumer config. In a real project, copy this into the project's
+	// .devcontainer/ and add project-specific extensions / mounts / postCreate.
+	"name": "my-app", // placeholder — change per project
+	"image": "registry.gitlab.com/fhassis/devcontainer:latest",
+	"remoteUser": "devcontainer",
+	// Mount the whole PARENT folder (e.g. ~/repos) at /workspaces — not just this
+	// project — so sibling projects are reachable inside the container (handy for
+	// pointing Claude Code at other repos). `${localWorkspaceFolder}/..` is the
+	// devcontainer.json equivalent of the compose `../..` mount. VS Code still
+	// opens at this project's subfolder via workspaceFolder.
+	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+	"workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspaces,type=bind,consistency=cached",
+	"overrideCommand": false,
+	"mounts": [
+		// Persist fish history across rebuilds (per-project volume).
+		"source=${localWorkspaceFolderBasename}-fish-history,target=/home/devcontainer/.local/share/fish,type=volume",
+		// docker-outside-of-docker: talk to the host daemon (k3d, builds, etc.).
+		// The image entrypoint aligns the in-container docker GID with this socket.
+		"source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
+	],
+	"customizations": {
+		"vscode": {
+			// Superset of the tax-helper + expense-tracker extensions, plus
+			// Kubernetes (Microsoft) and Ansible (Red Hat). Delete the groups a
+			// given project doesn't use when copying this into it.
+			"extensions": [
+				// general
+				"anthropic.claude-code",
+				"usernamehw.errorlens",
+				"tamasfe.even-better-toml",
+				"ms-azuretools.vscode-containers",
+				// kubernetes / infra
+				"ms-kubernetes-tools.vscode-kubernetes-tools",
+				"redhat.ansible",
+				// javascript / typescript (bun, svelte, tailwind)
+				"oven.bun-vscode",
+				"esbenp.prettier-vscode",
+				"dbaeumer.vscode-eslint",
+				"svelte.svelte-vscode",
+				"bradlc.vscode-tailwindcss",
+				// python
+				"ms-python.python",
+				"charliermarsh.ruff",
+				// data / templates / viewers
+				"ms-ossdata.vscode-pgsql",
+				"samuelcolvin.jinjahtml",
+				"GrapeCity.gc-excelviewer",
+				"mechatroner.rainbow-csv"
+			],
+			"settings": {
+				"terminal.integrated.defaultProfile.linux": "fish"
+			}
+		}
+	}
 }
