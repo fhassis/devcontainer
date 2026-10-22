@@ -48,7 +48,8 @@ RUN apt-get update \
       git openssh-client make \
       # the C linker rustc needs
       gcc libc6-dev \
-      fish starship eza \
+      # shell toolbelt, the same as the workstation's fish setup (config/config.fish)
+      fish starship eza bat fzf zoxide jq tmux nano less wget zip rsync \
       docker-ce-cli docker-buildx-plugin docker-compose-plugin \
       "postgresql-client-${PG_MAJOR}" \
  # browser system libraries (NOT a browser binary) for headless Chromium, so the

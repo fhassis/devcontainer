@@ -9,12 +9,12 @@ extensions, extra services, project-only tools) in their `devcontainer.json`.
 
 | Group | Tools |
 | :--- | :--- |
-| Shell & prompt | `fish`, `starship` (nerd-fonts preset), `eza` (aliased to `ls`/`ll`/`la`) |
+| Shell & prompt | `fish`, `starship` (nerd-fonts preset), `tmux`, and the workstation's fish setup: `eza` (`ls`/`la`), `bat` (`cat`, `MANPAGER`), `fzf` (Ctrl+T/R, Alt+C, `f`), `zoxide` (`z`/`zi`) |
 | Version control | `git`, `glab` (GitLab CLI) |
 | Languages | Python 3.14 (base image), `uv` (+`uvx`), Node 24 via `fnm` (+`npm`/`npx`), `bun`, Rust stable (`rustup`, `cargo`, `clippy`, `rustfmt`) |
 | Containers | `docker` CLI (docker-outside-of-docker) |
 | Database | `postgresql-client-18` (`psql`) |
-| Misc | `make`, `curl`, `openssh-client`, chromium dependencies (for MCP servers) |
+| Misc | `jq`, `nano`, `less`, `wget`, `zip`, `rsync`, `make`, `curl`, `openssh-client`, chromium dependencies (for MCP servers) |
 | Claude Code | `claude` + plugins: ponytail, mattpocock-skills, frontend-design, code-review, chrome-devtools-mcp, and the LSP plugins for TypeScript, Pyright and rust-analyzer (their servers are in the image) |
 
 fish completions are pre-generated for uv, docker, glab, rustup and fnm. (bun has no
