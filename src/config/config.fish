@@ -5,6 +5,8 @@ set -g fish_greeting ''
 # non-TTY launches (e.g. some IDEs spawn fish before opening the terminal).
 if status is-interactive
     starship init fish | source
+    # Switch node to the project's .node-version / .nvmrc on cd.
+    fnm env --use-on-cd --shell fish | source
 end
 
 # eza aliases

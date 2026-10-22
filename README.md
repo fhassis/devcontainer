@@ -10,16 +10,15 @@ extensions, extra services, project-only tools) in their `devcontainer.json`.
 | Group | Tools |
 | :--- | :--- |
 | Shell & prompt | `fish`, `starship` (nerd-fonts preset), `eza` (aliased to `ls`/`ll`/`la`) |
-| Version control | `git`, `glab` (GitLab CLI),  |
-| Languages | Python 3.14 (system), `uv` (Python manager) (+`uvx`), `bun` (JS/TS runtime) |
-| Kubernetes | `kubectl`, `k3d`, `helm`, `k9s` |
+| Version control | `git`, `glab` (GitLab CLI) |
+| Languages | Python 3.14 (base image), `uv` (+`uvx`), Node 24 via `fnm` (+`npm`/`npx`), `bun`, Rust stable (`rustup`, `cargo`, `clippy`, `rustfmt`) |
 | Containers | `docker` CLI (docker-outside-of-docker) |
 | Database | `postgresql-client-18` (`psql`) |
 | Misc | `make`, `curl`, `openssh-client`, chromium dependencies (for MCP servers) |
+| Claude Code | `claude` + plugins: ponytail, mattpocock-skills, frontend-design, code-review, chrome-devtools-mcp, and the LSP plugins for TypeScript, Pyright and rust-analyzer (their servers are in the image) |
 
-fish completions are pre-generated for uv, docker, kubectl, helm, k3d and glab.
-(bun has no `completion fish` subcommand — fish infers it from `--help`; k9s is a
-TUI with no completion.)
+fish completions are pre-generated for uv, docker, glab, rustup and fnm. (bun has no
+`completion fish` subcommand — fish infers it from `--help`; cargo's ship with fish.)
 
 ## Design notes
 
@@ -28,14 +27,21 @@ TUI with no completion.)
 - **docker-outside-of-docker.** The Docker CLI talks to the *host* daemon via the
   mounted `/var/run/docker.sock`. The entrypoint runs as root (PID 1) to align the
   in-container `docker` group GID with that socket, so the non-root user uses
-  `docker`/`k3d` without sudo; VS Code attaches as `devcontainer` separately.
-- **k3d access model.** The k3d *cluster* runs on the host (managed by the
-  `vps-infra` repo, `make k3d-local`); this image gives you the CLIs + the host
-  docker socket to *operate* it (`kubectl`, `k3d image import`, `k9s`). The
-  cluster does not run inside the container.
-- **Pinned versions.** All tool versions are `ARG`s at the top of the
-  [`src/Dockerfile`](./src/Dockerfile) — bump them there. uv and bun are copied from their
-  official images; the k8s tools and glab are pinned binary downloads.
+  `docker` without sudo; VS Code attaches as `devcontainer` separately.
+- **Base `python:3.14-slim-trixie`.** uv is set to use that Python and never
+  download its own (`UV_PYTHON_DOWNLOADS=never`, `UV_PYTHON_PREFERENCE=only-system`),
+  so Python comes from the image, not from the home directory.
+- **Everything tracks latest; a rebuild is the update.** bun, uv, fnm, rustup
+  and Claude Code come from their official install scripts, glab from its latest
+  release. Pinned: the Postgres client major (`PG_MAJOR`, to match the server),
+  Python's minor (3.14, the base tag) and Node's major (24). `make build` passes `--pull`, which refreshes the base
+  image; the cached `RUN` layers only move when a layer above them changes.
+- **Node via fnm.** fnm's `default` alias is on `PATH`, so non-interactive
+  shells (Claude's Bash tool, compose commands) get Node 24; interactive fish
+  also switches to a project's `.node-version` / `.nvmrc` on `cd`.
+- **Rust** lives in `/usr/local/{rustup,cargo}`, owned by `devcontainer`, so
+  `cargo install` and `rustup update` work without sudo. Debian's own `rustc`
+  package is frozen per release (1.85 on Trixie).
 - **One apt layer.** A single `RUN` bootstraps the minimum to add repositories,
   registers the Docker and PostgreSQL-PGDG repos, does one `apt install`, and
   drops the cache — no per-tool add/install/clean duplication.
@@ -63,16 +69,14 @@ with this image as the devcontainer service, exactly like the current setups.
 
 ## Build & publish
 
-CI ([`.gitlab-ci.yml`](./.gitlab-ci.yml)) builds and pushes to the project's GitLab
-Container Registry: a git tag publishes `:<tag>`; otherwise the default branch
-publishes `:latest`. Only commits that touch `src/` (the build context) rebuild —
-docs-only commits skip it. Pin projects to a tag, not `:latest`, so a bump is explicit.
-
-Local build for testing:
+From this machine, no CI. Log in to the registry once
+(`docker login registry.gitlab.com`, with a token that has `write_registry`), then:
 
 ```bash
-docker build -t registry.gitlab.com/fhassis/devcontainer:dev src
+make build              # local image, :latest
+make publish            # build + push :latest
+make publish TAG=v2     # build + push a named tag
 ```
 
-> Built for `linux/amd64`. The k8s/glab binary URLs hardcode `amd64`; adjust the
-> `arch` in `src/Dockerfile` for arm64.
+> Built for `linux/amd64`. The Docker apt repo and the glab URL hardcode `amd64`;
+> adjust them in `src/Dockerfile` for arm64.

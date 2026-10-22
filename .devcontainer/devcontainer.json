@@ -15,14 +15,14 @@
 	"mounts": [
 		// Persist fish history across rebuilds (per-project volume).
 		"source=${localWorkspaceFolderBasename}-fish-history,target=/home/devcontainer/.local/share/fish,type=volume",
-		// docker-outside-of-docker: talk to the host daemon (k3d, builds, etc.).
+		// docker-outside-of-docker: talk to the host daemon (builds, compose, etc.).
 		// The image entrypoint aligns the in-container docker GID with this socket.
 		"source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
 	],
 	"customizations": {
 		"vscode": {
 			// Superset of the tax-helper + expense-tracker extensions, plus
-			// Kubernetes (Microsoft) and Ansible (Red Hat). Delete the groups a
+			// Ansible (Red Hat) and rust-analyzer. Delete the groups a
 			// given project doesn't use when copying this into it.
 			"extensions": [
 				// general
@@ -30,8 +30,7 @@
 				"usernamehw.errorlens",
 				"tamasfe.even-better-toml",
 				"ms-azuretools.vscode-containers",
-				// kubernetes / infra
-				"ms-kubernetes-tools.vscode-kubernetes-tools",
+				// infra
 				"redhat.ansible",
 				// javascript / typescript (bun, svelte, tailwind)
 				"oven.bun-vscode",
@@ -39,6 +38,8 @@
 				"dbaeumer.vscode-eslint",
 				"svelte.svelte-vscode",
 				"bradlc.vscode-tailwindcss",
+				// rust
+				"rust-lang.rust-analyzer",
 				// python
 				"ms-python.python",
 				"charliermarsh.ruff",
