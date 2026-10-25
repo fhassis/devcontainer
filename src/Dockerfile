@@ -2,7 +2,7 @@
 # fhassis devcontainer base — Python 3.14 on Debian Trixie slim + a toolbelt.
 #
 # One image for every project: shell, Python, Node, Bun, Rust, the Docker/Postgres/git
-# toolbelt, and the system libraries headless Chromium needs.
+# toolbelt, and Google Chrome (headless, for the Chrome DevTools MCP).
 # Per-project bits (VS Code extensions, extra services, project-only tools) live
 # in each project's devcontainer.json — not here.
 #
@@ -37,6 +37,12 @@ RUN apt-get update \
       | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
  && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian trixie stable" \
       > /etc/apt/sources.list.d/docker.list \
+ # Google Chrome stable: chrome-devtools-mcp (a Claude plugin below) launches
+ # /opt/google/chrome/chrome and never downloads a browser itself.
+ && $DL https://dl.google.com/linux/linux_signing_key.pub \
+      | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg \
+ && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
+      > /etc/apt/sources.list.d/google-chrome.list \
  # PostgreSQL PGDG — Trixie only ships up to pg17, we want the pinned major
  && $DL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
       | gpg --dearmor -o /etc/apt/keyrings/pgdg.gpg \
@@ -52,8 +58,8 @@ RUN apt-get update \
       fish starship eza bat fzf zoxide jq tmux nano less wget zip rsync \
       docker-ce-cli docker-buildx-plugin docker-compose-plugin \
       "postgresql-client-${PG_MAJOR}" \
- # browser system libraries (NOT a browser binary) for headless Chromium, so the
- # per-project automation MCPs (Playwright / Chrome DevTools) run its chrome versions.
+      google-chrome-stable \
+ # browser system libraries for Playwright's own Chromium builds (per project).
  && bunx playwright install-deps chromium \
  && rm -rf /var/lib/apt/lists/* /root/.bun /tmp/bun.sh
 
@@ -122,6 +128,10 @@ RUN claude plugin marketplace add anthropics/claude-plugins-official \
              typescript-lsp pyright-lsp rust-analyzer-lsp; do \
       claude plugin install "$p@claude-plugins-official"; \
     done
+# chrome-devtools-mcp's config file: headless (no X server here, and it launches
+# headful by default), no sandbox (Docker's seccomp denies the user namespace
+# Chrome's sandbox needs; the container is the isolation).
+COPY --chown=devcontainer:devcontainer config/chrome-devtools-mcp.json /home/devcontainer/.config/cd4a/config.json
 
 # ---- entrypoint runs as root to align the docker group GID with the mounted
 #      socket; VS Code attaches as `devcontainer` via docker exec, separately.
