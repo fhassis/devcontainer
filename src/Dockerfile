@@ -32,7 +32,7 @@ RUN apt-get update \
  # BUN_INSTALL=/usr/local puts bun + bunx in /usr/local/bin.
  && $DL https://bun.sh/install -o /tmp/bun.sh \
  && BUN_INSTALL=/usr/local bash /tmp/bun.sh \
- # Docker CE — for docker-ce-cli
+ # Docker CE — the CLI plus dockerd (docker-in-docker, see the entrypoint)
  && $DL https://download.docker.com/linux/debian/gpg \
       | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
  && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian trixie stable" \
@@ -56,7 +56,9 @@ RUN apt-get update \
       gcc libc6-dev \
       # shell toolbelt, the same as the workstation's fish setup (config/config.fish)
       fish starship eza bat fzf zoxide jq tmux nano less wget zip rsync \
-      docker-ce-cli docker-buildx-plugin docker-compose-plugin \
+      docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin \
+      # dockerd needs iptables; gosu drops the entrypoint back to `devcontainer`
+      iptables gosu \
       "postgresql-client-${PG_MAJOR}" \
       google-chrome-stable \
  # browser system libraries for Playwright's own Chromium builds (per project).
@@ -92,7 +94,7 @@ RUN $DL https://astral.sh/uv/install.sh -o /tmp/uv.sh \
 #      auto (the entrypoint aligns it to the socket). The Rust dirs are created
 #      owned by it so rustup installs as the user and `cargo install` needs no sudo. ----
 RUN useradd -m -u 1000 -U -s /usr/bin/fish devcontainer \
- && groupadd docker \
+ && groupadd -f docker \
  && usermod -aG docker devcontainer \
  && install -d -o devcontainer -g devcontainer "$RUSTUP_HOME" "$CARGO_HOME"
 
@@ -134,7 +136,7 @@ RUN claude plugin marketplace add anthropics/claude-plugins-official \
 COPY --chown=devcontainer:devcontainer config/chrome-devtools-mcp.json /home/devcontainer/.config/cd4a/config.json
 
 # ---- entrypoint runs as root to align the docker group GID with the mounted
-#      socket; VS Code attaches as `devcontainer` via docker exec, separately.
+#      socket, or to start dockerd when none is mounted (privileged); VS Code attaches as `devcontainer` via docker exec, separately.
 USER root
 COPY config/docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
