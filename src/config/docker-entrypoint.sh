@@ -5,6 +5,11 @@
 #    (docker-outside-of-docker).
 #  - no socket, but a privileged container: start our own dockerd
 #    (docker-in-docker), then drop to `devcontainer`. /var/lib/docker should be a volume.
+# chrome-devtools-mcp's config, from the image on every start (see the Dockerfile).
+if [ "$(id -u)" = 0 ]; then
+    install -D -o devcontainer -g devcontainer -m 644 /usr/local/share/cd4a/config.json \
+        /home/devcontainer/.config/cd4a/config.json
+fi
 if [ -S /var/run/docker.sock ]; then
     SOCKET_GID=$(stat -c '%g' /var/run/docker.sock)
     groupmod -g "$SOCKET_GID" docker 2>/dev/null || true

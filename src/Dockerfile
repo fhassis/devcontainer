@@ -132,8 +132,12 @@ RUN claude plugin marketplace add anthropics/claude-plugins-official \
     done
 # chrome-devtools-mcp's config file: headless (no X server here, and it launches
 # headful by default), no sandbox (Docker's seccomp denies the user namespace
-# Chrome's sandbox needs; the container is the isolation).
-COPY --chown=devcontainer:devcontainer config/chrome-devtools-mcp.json /home/devcontainer/.config/cd4a/config.json
+# Chrome's sandbox needs; the container is the isolation), isolated (a profile in
+# a persistent home keeps a SingletonLock naming the previous container's
+# hostname, and Chrome refuses it on the next one), and the owner's phone as the
+# window and user agent. Kept outside ~ and installed there by the entrypoint on
+# every start: a home volume is seeded once, and this must reach existing ones.
+COPY config/chrome-devtools-mcp.json /usr/local/share/cd4a/config.json
 
 # ---- entrypoint runs as root to align the docker group GID with the mounted
 #      socket, or to start dockerd when none is mounted (privileged); VS Code attaches as `devcontainer` via docker exec, separately.
