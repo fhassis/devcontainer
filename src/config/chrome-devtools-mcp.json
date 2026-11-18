@@ -1,4 +1,5 @@
 {
+  "executablePath": "/usr/bin/chromium",
   "headless": true,
   "isolated": true,
   "viewport": "393x873",

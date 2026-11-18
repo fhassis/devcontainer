@@ -3,7 +3,7 @@
 IMAGE := registry.gitlab.com/fhassis/devcontainer
 TAG ?= latest
 
-# --pull refreshes the base images (bun, uv, rust); cached RUN layers (glab,
+# --pull refreshes the debian base image; cached RUN layers (uv, fnm, rustup,
 # Claude Code) only move when an earlier layer changes.
 image-build:
 	docker build --pull -t $(IMAGE):$(TAG) src

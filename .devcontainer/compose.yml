@@ -1,0 +1,54 @@
+name: devcontainer
+
+services:
+  devcontainer:
+    image: registry.gitlab.com/fhassis/devcontainer:latest
+    volumes:
+      # Parent folder, so sibling repos are reachable.
+      - ../..:/workspaces:cached
+      - fish-history:/home/devcontainer/.local/share/fish
+      - claude-config:/home/devcontainer/.claude
+      - /var/run/docker.sock:/var/run/docker.sock
+
+  # Optional; enable via runServices in devcontainer.json. Reach it as postgres:5432.
+  postgres:
+    image: docker.io/postgres:18
+    profiles: [postgres]
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: app
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Same profile as postgres, already connected to it: http://localhost:5050
+  pgadmin:
+    image: docker.io/dpage/pgadmin4:9
+    profiles: [postgres]
+    environment:
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+      PGADMIN_DEFAULT_EMAIL: admin@example.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_SERVER_JSON_FILE: /pgadmin4/servers.json
+    volumes:
+      - pgadmin-data:/var/lib/pgadmin
+      - ./config/pgadmin.json:/pgadmin4/servers.json:ro
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  fish-history:
+  # Shared by all projects; external so `down -v` never deletes it.
+  claude-config:
+    external: true
+  postgres-data:
+  pgadmin-data:

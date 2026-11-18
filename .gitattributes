@@ -1,0 +1,2 @@
+# LF everywhere: these files are copied into a Linux image (a CRLF entrypoint breaks).
+* text=auto eol=lf

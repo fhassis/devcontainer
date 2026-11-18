@@ -1,19 +1,21 @@
 # =============================================================================
-# fhassis devcontainer base — Python 3.14 on Debian Trixie slim + a toolbelt.
+# fhassis devcontainer base — Debian Trixie slim + a toolbelt (Python via uv).
 #
-# One image for every project: shell, Python, Node, Bun, Rust, the Docker/Postgres/git
-# toolbelt, and Google Chrome (headless, for the Chrome DevTools MCP).
+# One image for every project: shell, Python, Node, Rust, the Docker/Postgres/git
+# toolbelt, and Debian's Chromium (headless, for the Chrome DevTools MCP).
 # Per-project bits (VS Code extensions, extra services, project-only tools) live
 # in each project's devcontainer.json — not here.
 #
 # Everything tracks latest via each tool's official install script: a rebuild is
-# the update. `make build` passes --pull, which refreshes the Python base; the
+# the update. `make image-build` passes --pull, which refreshes the Debian base; the
 # cached RUN layers only move when one above them does.
 # =============================================================================
 
-FROM python:3.14-slim-trixie
+FROM debian:trixie-slim
 
 ARG PG_MAJOR=18
+ARG PYTHON_VERSION=3.15
+ARG NODE_VERSION=26
 
 # bash with pipefail so a failing `curl | tar` actually fails the build.
 SHELL ["/bin/bash", "-euo", "pipefail", "-c"]
@@ -28,21 +30,11 @@ ARG DL="curl -fsSL --ipv4 --retry 5 --retry-delay 2 --retry-all-errors"
 RUN apt-get update \
  && apt-get install -y --no-install-recommends curl ca-certificates gnupg unzip \
  && install -m 0755 -d /etc/apt/keyrings \
- # Bun first: the install below runs `bunx playwright install-deps`.
- # BUN_INSTALL=/usr/local puts bun + bunx in /usr/local/bin.
- && $DL https://bun.sh/install -o /tmp/bun.sh \
- && BUN_INSTALL=/usr/local bash /tmp/bun.sh \
  # Docker CE — the CLI plus dockerd (docker-in-docker, see the entrypoint)
  && $DL https://download.docker.com/linux/debian/gpg \
       | gpg --dearmor -o /etc/apt/keyrings/docker.gpg \
  && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian trixie stable" \
       > /etc/apt/sources.list.d/docker.list \
- # Google Chrome stable: chrome-devtools-mcp (a Claude plugin below) launches
- # /opt/google/chrome/chrome and never downloads a browser itself.
- && $DL https://dl.google.com/linux/linux_signing_key.pub \
-      | gpg --dearmor -o /etc/apt/keyrings/google-chrome.gpg \
- && echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/google-chrome.gpg] https://dl.google.com/linux/chrome/deb/ stable main" \
-      > /etc/apt/sources.list.d/google-chrome.list \
  # PostgreSQL PGDG — Trixie only ships up to pg17, we want the pinned major
  && $DL https://www.postgresql.org/media/keys/ACCC4CF8.asc \
       | gpg --dearmor -o /etc/apt/keyrings/pgdg.gpg \
@@ -60,48 +52,47 @@ RUN apt-get update \
       # dockerd needs iptables; gosu drops the entrypoint back to `devcontainer`
       iptables gosu \
       "postgresql-client-${PG_MAJOR}" \
-      google-chrome-stable \
- # browser system libraries for Playwright's own Chromium builds (per project).
- && bunx playwright install-deps chromium \
- && rm -rf /var/lib/apt/lists/* /root/.bun /tmp/bun.sh
+      # for chrome-devtools-mcp (a Claude plugin below)
+      chromium \
+ && rm -rf /var/lib/apt/lists/*
 
-# uv uses the image's Python 3.14 (/usr/local/bin, first on PATH) and never
-# downloads its own.
+# Python comes only from uv (managed builds), in a fixed dir owned by `devcontainer`:
+# `uv python install` and the automatic downloads for a project's
+# .python-version need no sudo. Its bin dir holds the `python`/`python3` shims.
 ENV LANG=C.UTF-8 LC_ALL=C.UTF-8 SHELL=/usr/bin/fish \
     PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 UV_LINK_MODE=copy \
-    UV_PYTHON_DOWNLOADS=never UV_PYTHON_PREFERENCE=only-system \
+    UV_PYTHON_PREFERENCE=only-managed \
+    UV_PYTHON_INSTALL_DIR=/usr/local/share/uv/python UV_PYTHON_BIN_DIR=/usr/local/share/uv/bin \
     STARSHIP_CONFIG=/home/devcontainer/.config/starship.toml \
+    # Claude Code keeps .claude.json inside ~/.claude too, so one volume holds it all.
+    CLAUDE_CONFIG_DIR=/home/devcontainer/.claude \
     RUSTUP_HOME=/usr/local/rustup CARGO_HOME=/usr/local/cargo \
     FNM_DIR=/home/devcontainer/.local/share/fnm \
     # fnm's default alias on PATH, so non-interactive shells (Claude's Bash tool,
     # compose commands) get node too; interactive fish switches per project.
-    PATH=/home/devcontainer/.local/bin:/home/devcontainer/.local/share/fnm/aliases/default/bin:/home/devcontainer/.bun/bin:/usr/local/cargo/bin:$PATH
+    PATH=/home/devcontainer/.local/bin:/usr/local/share/uv/bin:/home/devcontainer/.local/share/fnm/aliases/default/bin:/usr/local/cargo/bin:$PATH
 
-# ---- uv (+uvx), fnm and glab, one layer ----
-# glab has no install script, so its latest release tarball.
+# ---- uv (+uvx) and fnm, one layer ----
 RUN $DL https://astral.sh/uv/install.sh -o /tmp/uv.sh \
  && UV_INSTALL_DIR=/usr/local/bin UV_NO_MODIFY_PATH=1 sh /tmp/uv.sh \
  && $DL https://fnm.vercel.app/install -o /tmp/fnm.sh \
  && bash /tmp/fnm.sh --install-dir /usr/local/bin --skip-shell \
- && v=$($DL https://gitlab.com/api/v4/projects/gitlab-org%2Fcli/releases/permalink/latest \
-        | grep -o '"tag_name":"v[^"]*"' | head -1 | cut -d'"' -f4 | tr -d v) \
- && $DL "https://gitlab.com/gitlab-org/cli/-/releases/v${v}/downloads/glab_${v}_linux_amd64.tar.gz" -o /tmp/glab.tgz \
- && tar -xzf /tmp/glab.tgz -C /tmp \
- && mv /tmp/bin/glab /usr/local/bin/glab \
- && rm -rf /tmp/uv.sh /tmp/fnm.sh /tmp/bin /tmp/glab.tgz
+ && rm -f /tmp/uv.sh /tmp/fnm.sh
 
 # ---- non-root user `devcontainer` (uid/gid 1000), shell fish; docker group GID is
-#      auto (the entrypoint aligns it to the socket). The Rust dirs are created
-#      owned by it so rustup installs as the user and `cargo install` needs no sudo. ----
+#      auto (the entrypoint aligns it to the socket). The Rust and uv Python dirs
+#      are created owned by it, so both install as the user and need no sudo. ----
 RUN useradd -m -u 1000 -U -s /usr/bin/fish devcontainer \
  && groupadd -f docker \
  && usermod -aG docker devcontainer \
- && install -d -o devcontainer -g devcontainer "$RUSTUP_HOME" "$CARGO_HOME"
+ && install -d -o devcontainer -g devcontainer "$RUSTUP_HOME" "$CARGO_HOME" \
+      "$UV_PYTHON_INSTALL_DIR" "$UV_PYTHON_BIN_DIR"
 
-# ---- Node 24 (fnm), Rust, shell config + fish completions, as the non-root user ----
+# ---- Python (uv), Node (fnm), Rust, shell config + fish completions, as the non-root user ----
 USER devcontainer
-RUN fnm install 24 \
- && fnm default 24 \
+RUN uv python install "$PYTHON_VERSION" --default \
+ && fnm install "$NODE_VERSION" \
+ && fnm default "$NODE_VERSION" \
  # language servers for the Claude Code LSP plugins below (rust-analyzer via rustup)
  && npm install -g typescript-language-server typescript pyright \
  && $DL https://sh.rustup.rs -o /tmp/rustup.sh \
@@ -111,11 +102,9 @@ RUN fnm install 24 \
  && starship preset nerd-font-symbols -o ~/.config/starship.toml \
  && uv generate-shell-completion fish > ~/.config/fish/completions/uv.fish \
  && docker  completion fish > ~/.config/fish/completions/docker.fish \
- && glab    completion -s fish > ~/.config/fish/completions/glab.fish \
  && rustup  completions fish rustup > ~/.config/fish/completions/rustup.fish \
  && fnm     completions --shell fish > ~/.config/fish/completions/fnm.fish
-# bun has no `completion fish` subcommand (fish infers it from --help); cargo's
-# completions ship with fish itself.
+# cargo's completions ship with fish itself.
 COPY config/config.fish /etc/fish/conf.d/config.fish
 
 # ---- Claude Code CLI (terminal `claude`), installed for the non-root user ----
@@ -130,7 +119,9 @@ RUN claude plugin marketplace add anthropics/claude-plugins-official \
              typescript-lsp pyright-lsp rust-analyzer-lsp; do \
       claude plugin install "$p@claude-plugins-official"; \
     done
-# chrome-devtools-mcp's config file: headless (no X server here, and it launches
+
+# chrome-devtools-mcp's config file: Debian's /usr/bin/chromium (it looks for
+# Google Chrome by default), headless (no X server here, and it launches
 # headful by default), no sandbox (Docker's seccomp denies the user namespace
 # Chrome's sandbox needs; the container is the isolation), isolated (a profile in
 # a persistent home keeps a SingletonLock naming the previous container's

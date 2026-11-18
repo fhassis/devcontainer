@@ -1,29 +1,16 @@
 {
-	// Example consumer config. In a real project, copy this into the project's
-	// .devcontainer/ and add project-specific extensions / mounts / postCreate.
-	"name": "my-app", // placeholder — change per project
-	"image": "registry.gitlab.com/fhassis/devcontainer:latest",
+	"name": "devcontainer",
+	"dockerComposeFile": "compose.yml",
+	"service": "devcontainer",
+	// Profiled services to start with compose. Comment if not want them.
+	"runServices": ["postgres"],
+	// claude-config is external in compose.yml; create it if missing.
+	"initializeCommand": "docker volume create claude-config",
 	"remoteUser": "devcontainer",
-	// Mount the whole PARENT folder (e.g. ~/repos) at /workspaces — not just this
-	// project — so sibling projects are reachable inside the container (handy for
-	// pointing Claude Code at other repos). `${localWorkspaceFolder}/..` is the
-	// devcontainer.json equivalent of the compose `../..` mount. VS Code still
-	// opens at this project's subfolder via workspaceFolder.
 	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
-	"workspaceMount": "source=${localWorkspaceFolder}/..,target=/workspaces,type=bind,consistency=cached",
-	"overrideCommand": false,
-	"mounts": [
-		// Persist fish history across rebuilds (per-project volume).
-		"source=${localWorkspaceFolderBasename}-fish-history,target=/home/devcontainer/.local/share/fish,type=volume",
-		// docker-outside-of-docker: talk to the host daemon (builds, compose, etc.).
-		// The image entrypoint aligns the in-container docker GID with this socket.
-		"source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind"
-	],
 	"customizations": {
 		"vscode": {
-			// Superset of the tax-helper + expense-tracker extensions, plus
-			// Ansible (Red Hat) and rust-analyzer. Delete the groups a
-			// given project doesn't use when copying this into it.
+			// Remove the groups the project doesn't use.
 			"extensions": [
 				// general
 				"anthropic.claude-code",
@@ -32,8 +19,7 @@
 				"ms-azuretools.vscode-containers",
 				// infra
 				"redhat.ansible",
-				// javascript / typescript (bun, svelte, tailwind)
-				"oven.bun-vscode",
+				// javascript / typescript (svelte, tailwind)
 				"esbenp.prettier-vscode",
 				"dbaeumer.vscode-eslint",
 				"svelte.svelte-vscode",
@@ -44,7 +30,6 @@
 				"ms-python.python",
 				"charliermarsh.ruff",
 				// data / templates / viewers
-				"ms-ossdata.vscode-pgsql",
 				"samuelcolvin.jinjahtml",
 				"GrapeCity.gc-excelviewer",
 				"mechatroner.rainbow-csv"
