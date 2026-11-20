@@ -35,7 +35,14 @@
 				"mechatroner.rainbow-csv"
 			],
 			"settings": {
-				"terminal.integrated.defaultProfile.linux": "fish"
+				// fish comes from the dotfiles; bash when they aren't installed
+				"terminal.integrated.profiles.linux": {
+					"fish": { "path": ["/home/devcontainer/.local/bin/fish", "/bin/bash"] }
+				},
+				"terminal.integrated.defaultProfile.linux": "fish",
+				// Terminal setup (fish config, prompt, fzf, nvim, theme)
+				"dotfiles.repository": "fhassis/dotfiles",
+				"dotfiles.installCommand": "install.sh"
 			}
 		}
 	}

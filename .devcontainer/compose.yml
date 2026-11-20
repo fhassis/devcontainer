@@ -2,7 +2,7 @@ name: devcontainer
 
 services:
   devcontainer:
-    image: registry.gitlab.com/fhassis/devcontainer:latest
+    image: ghcr.io/fhassis/devcontainer:latest
     volumes:
       # Parent folder, so sibling repos are reachable.
       - ../..:/workspaces:cached

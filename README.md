@@ -9,12 +9,12 @@ extensions, extra services, project-only tools) in their `devcontainer.json`.
 
 | Group | Tools |
 | :--- | :--- |
-| Shell | `fish` (login shell), `tmux`. Prompt, fzf, zoxide, nvim, theme… come from [dotfiles](#terminal-setup-dotfiles) |
+| Shell | `bash` (login shell). The terminal (fish, tmux, prompt, fzf, zoxide, nvim, theme…) comes from [dotfiles](#terminal-setup-dotfiles) |
 | Version control | `git` |
-| Languages | Python 3.15 via `uv` (+`uvx`), Node 26 (+`npm`/`npx`), Rust stable (`rustup`, `cargo`, `clippy`, `rustfmt`) |
-| Tool versions | [`mise`](https://mise.jdx.dev): installs node, uv, kubectl, helm and the LSPs from [`config/mise.toml`](./src/config/mise.toml); a project's `mise.toml` (or `.nvmrc`) pins its own |
-| Containers | `docker` CLI + `dockerd` (outside-of-docker with a mounted socket, docker-in-docker when privileged), `kubectl`, `helm` |
-| Database | `postgresql-client-18` (`psql`) |
+| Languages | Python 3.15 (+`uv`/`uvx`), Node 26 (+`npm`/`npx`), Rust stable (`rustup`, `cargo`, `clippy`, `rustfmt`) |
+| Tool versions | [`mise`](https://mise.jdx.dev): installs python, node, postgres, kubectl, uv, helm and the LSPs from [`config/mise.toml`](./src/config/mise.toml); a project's `mise.toml` (or `.nvmrc`) pins its own |
+| Containers | `docker` CLI + `compose` + `buildx`, using the host daemon through the mounted socket (docker-outside-of-docker), `kubectl` 1.37, `helm` |
+| Database | PostgreSQL 18 client tools (`psql`, `pg_dump`…); the server runs as a compose service |
 | Misc | `jq`, `nano`, `less`, `wget`, `zip`, `rsync`, `make`, `curl`, `openssh-client`, Debian's Chromium (headless and isolated, sized as a Xiaomi Redmi 12, for the Chrome DevTools MCP) |
 | Claude Code | `claude` + plugins: ponytail, mattpocock-skills, frontend-design, code-review, chrome-devtools-mcp, and the LSP plugins for TypeScript, Pyright and rust-analyzer (their servers are in the image) |
 
@@ -23,8 +23,9 @@ extensions, extra services, project-only tools) in their `devcontainer.json`.
 The image ships the tools, not the terminal's look and feel. That comes from the
 [dotfiles](https://github.com/fhassis/dotfiles) repo, which VS Code clones into
 every new container and installs (`~/dotfiles/install.sh`: fish config, starship,
-fzf, zoxide, eza, bat, nvim, delta, Catppuccin, fish completions). In your VS Code
-*user* settings:
+fzf, zoxide, eza, bat, nvim, delta, Catppuccin, fish completions). The template's
+`devcontainer.json` already sets it, in `customizations.vscode.settings` (the same
+two settings also work in your VS Code *user* settings, for every container):
 
 ```jsonc
 "dotfiles.repository": "fhassis/dotfiles",
@@ -36,36 +37,36 @@ Without it the container works the same, with a plain fish.
 ## Design notes
 
 - **Non-root user `devcontainer`** (UID/GID 1000, matches the typical host user),
-  so files created in the workspace are owned correctly. fish is its login shell.
-- **docker-outside-of-docker.** The Docker CLI talks to the *host* daemon via the
-  mounted `/var/run/docker.sock`. The entrypoint runs as root (PID 1) to align the
-  in-container `docker` group GID with that socket, so the non-root user uses
-  `docker` without sudo; VS Code attaches as `devcontainer` separately.
-- **docker-in-docker.** With no socket mounted and a privileged container, the
-  entrypoint starts `dockerd` and drops to `devcontainer` via `gosu` (mount
-  `/var/lib/docker` as a volume).
+  so files created in the workspace are owned correctly. Its login shell is bash;
+  VS Code's terminal opens `~/.local/bin/fish` (installed by the dotfiles), or
+  bash when it isn't there.
+- **docker-outside-of-docker only.** The image has no daemon: the Docker CLI
+  (with the compose and buildx plugins, all from mise) talks to the *host* daemon
+  (Rancher Desktop, or Docker on Linux) via the mounted `/var/run/docker.sock`.
+  The entrypoint runs as root (PID 1) to align the in-container `docker` group GID
+  with that socket, so the non-root user uses `docker` without sudo; VS Code
+  attaches as `devcontainer` separately.
 - **Everything in the home, at default locations, owned by `devcontainer`**, so
   installing another version needs no sudo: mise's tools in `~/.local/share/mise`,
-  uv's Pythons in `~/.local/share/uv`, Rust in `~/.rustup` and `~/.cargo`.
+  Rust in `~/.rustup` and `~/.cargo`.
 - **Toolchains via mise.** [`config/mise.toml`](./src/config/mise.toml) is copied
-  to `/etc/mise/config.toml` and installed at build time: node, uv, kubectl, helm
-  and the language servers. mise merges it with the user's config (the dotfiles'
+  to `/etc/mise/config.toml` and installed at build time: python, node, postgres,
+  kubectl, uv, helm, the docker CLI and plugins, and the language servers. mise merges it with the user's config (the dotfiles'
   terminal tools) and a project's `mise.toml`. Its shims are on `PATH`, so
   non-interactive shells (Claude's Bash tool, compose commands) get the tools and
   honor a project's pinned versions; interactive fish activates mise and switches
   on `cd`. A project's `.nvmrc` / `.node-version` is read too.
-- **Python from uv.** mise installs uv; `uv python install --default` puts the
-  `PYTHON_VERSION` build's `python` / `python3` in `~/.local/bin`, on `PATH`, so
-  every shell has Python. uv uses only its managed Pythons
-  (`UV_PYTHON_PREFERENCE=only-managed`) and downloads the one a project's
-  `.python-version` asks for on `uv sync`.
+- **Python from mise, reused by uv.** mise installs a prebuilt Python (the same
+  python-build-standalone builds uv uses). With `UV_PYTHON_PREFERENCE=managed`, uv
+  reuses it when a project's `.python-version` matches, and downloads its own
+  otherwise.
 - **Rust via rustup**, its own manager (Debian's `rustc` is frozen per release,
   1.85 on Trixie).
 - **Everything tracks latest; a rebuild is the update.** mise, rustup and Claude
-  Code come from their official install scripts. Pinned: the Postgres client major
-  (`PG_MAJOR`, to match the server), Python's minor (`PYTHON_VERSION`, 3.15) and
-  Node's major (26, in `mise.toml`); a rebuild takes their latest patch.
-  `make image-build` passes `--pull`, which refreshes the base image; the cached
+  Code come from their official install scripts. Pinned in `mise.toml`: Python
+  3.15, Node 26, Postgres 18 (to match the server) and kubectl 1.37 (to match the
+  cluster); a rebuild takes their latest patch.
+  `make build` passes `--pull`, which refreshes the base image; the cached
   `RUN` layers only move when a layer above them changes.
 - **Claude Code config in a shared volume.** `~/.claude` is the named volume
   `claude-config`, shared by every project: one `/login`, the same settings and
@@ -74,9 +75,8 @@ Without it the container works the same, with a plain fish.
   image later need `claude plugin install` (or `docker volume rm claude-config`).
   Don't bind the host's `~/.claude`: it hides the image's plugins and carries
   host paths (e.g. `C:\...` from Windows).
-- **One apt layer.** A single `RUN` bootstraps the minimum to add repositories,
-  registers the Docker and PostgreSQL-PGDG repos, does one `apt install`, and
-  drops the cache — no per-tool add/install/clean duplication.
+- **apt only for Debian's own packages** (git, gcc, chromium…), in one layer with
+  no third-party repos; everything versioned comes from mise.
 
 ## Using it in a project
 
@@ -109,7 +109,7 @@ name (`postgres:5432`). No port is published on the host, so several projects ca
 run side by side; add `127.0.0.1:` ports when a host tool needs one.
 
 **Project-only tools:** swap `image:` for a small Dockerfile that starts
-`FROM registry.gitlab.com/fhassis/devcontainer:latest` (commented in `compose.yml`).
+`FROM ghcr.io/fhassis/devcontainer:latest` (commented in `compose.yml`).
 
 ## On Windows (Rancher Desktop)
 
@@ -117,13 +117,8 @@ The same `.devcontainer/` works with Rancher Desktop's WSL engine; the
 differences are where the code lives and a few path rules.
 
 - **Engine: dockerd (moby)**, not containerd, in Rancher Desktop's settings.
-- **Registry login** from PowerShell (Git Bash's `docker login` fails with
-  "non TTY device"), with a GitLab personal access token (`read_registry`, plus
-  `write_registry` to push):
-  ```powershell
-  docker login registry.gitlab.com -u fhassis   # paste the token as the password
-  ```
-  The credential is kept in the Windows credential store and reused by VS Code.
+- **Registry login:** `make login` (see [Build & push](#build--push)). The
+  credential is kept in the Windows credential store and reused by VS Code.
 - **Clone into a container volume, not `C:\`.** A bind of `C:\Users\…\Repos` goes
   through the Windows↔WSL file bridge: slow installs and builds, and file
   watching breaks. Instead use *Dev Containers: Clone Repository in Named Container
@@ -149,16 +144,26 @@ differences are where the code lives and a few path rules.
 - **`make`** isn't part of Windows; install it (`winget install ezwinports.make`),
   or run the `docker build` / `docker push` lines from the [Makefile](./Makefile).
 
-## Build & publish
+## Build & push
 
-From this machine, no CI. Log in to the registry once
-(`docker login registry.gitlab.com`, with a token that has `write_registry`), then:
+From this machine, no CI. The image goes to the GitHub Container Registry,
+`ghcr.io/fhassis/devcontainer`. `make login` logs Docker in with the GitHub CLI's
+token; once per machine, set up `gh` with the packages scopes:
 
 ```bash
-make image-build                          # local image, :latest
-make image-build image-push               # build + push :latest
-make image-build image-push TAG=v2        # build + push a named tag
+winget install --id GitHub.cli -e                  # Windows; on Linux, your package manager
+gh auth login                                      # GitHub.com, SSH, browser
+gh auth refresh -s write:packages,read:packages
 ```
 
-> Built for `linux/amd64`. The Docker apt repo hardcodes `amd64`;
-> adjust it in `src/Dockerfile` for arm64.
+Then:
+
+```bash
+make login                                # once per machine
+make build                                # local image, :latest
+make build push                           # build + push :latest
+make build push TAG=v2                    # build + push a named tag
+```
+
+A new package on ghcr.io is private: other machines must `make login` to pull
+it, or make it public in the package's settings on GitHub.

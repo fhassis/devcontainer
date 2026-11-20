@@ -1,12 +1,18 @@
-.PHONY: image-build image-push
+.PHONY: login build push
 
-IMAGE := registry.gitlab.com/fhassis/devcontainer
+IMAGE := ghcr.io/fhassis/devcontainer
 TAG ?= latest
 
-# --pull refreshes the debian base image; cached RUN layers (uv, fnm, rustup,
-# Claude Code) only move when an earlier layer changes.
-image-build:
+# Docker login to ghcr.io with the GitHub CLI's token. Once per machine:
+#   winget install --id GitHub.cli -e          (Windows; on Linux, your package manager)
+#   gh auth login                              (GitHub.com, SSH, browser)
+#   gh auth refresh -s write:packages,read:packages
+login:
+	gh auth token | docker login ghcr.io -u fhassis --password-stdin
+
+# --pull refreshes the debian base image.
+build:
 	docker build --pull -t $(IMAGE):$(TAG) src
 
-image-push:
+push:
 	docker push $(IMAGE):$(TAG)

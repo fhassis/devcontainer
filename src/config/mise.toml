@@ -3,10 +3,20 @@
 # with the user's ~/.config/mise/config.toml (terminal tools, from dotfiles)
 # and a project's mise.toml, which can pin other versions.
 [tools]
+# pinned; a rebuild takes the latest patch of each
+python = "3.15"
 node = "26"
+postgres = "18"   # psql, pg_dump...: match the server's major
+kubectl = "1.37"  # match the cluster
+# rolling
 uv = "latest"
-kubectl = "latest"
 helm = "latest"
+gh = "latest"
+# docker CLI + compose/buildx plugins (linked in ~/.docker/cli-plugins); the
+# daemon is the host's (Rancher Desktop), through the mounted socket
+docker-cli = "latest"
+docker-compose = "latest"
+"github:docker/buildx" = { version = "latest", bin = "docker-buildx" }
 # language servers for the Claude Code LSP plugins
 "npm:typescript" = "latest"
 "npm:typescript-language-server" = "latest"
