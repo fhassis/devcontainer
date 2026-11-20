@@ -11,12 +11,13 @@ extensions, extra services, project-only tools) in their `devcontainer.json`.
 | :--- | :--- |
 | Shell | `bash` (login shell). The terminal (fish, tmux, prompt, fzf, zoxide, nvim, theme…) comes from [dotfiles](#terminal-setup-dotfiles) |
 | Version control | `git` |
-| Languages | Python 3.15 (+`uv`/`uvx`), Node 26 (+`npm`/`npx`), Rust stable (`rustup`, `cargo`, `clippy`, `rustfmt`) |
-| Tool versions | [`mise`](https://mise.jdx.dev): installs python, node, postgres, kubectl, uv, helm and the LSPs from [`config/mise.toml`](./src/config/mise.toml); a project's `mise.toml` (or `.nvmrc`) pins its own |
+| Languages | Python 3.15 (+`uv`/`uvx`), Node 26 (+`npm`/`npx`), Rust stable (`rustup`, `cargo`, `clippy`, `rustfmt`), Flutter stable + Dart |
+| Mobile & desktop builds | Android SDK (the `android` CLI, `adb`) + Java 21 (Temurin); `clang`, `cmake`, `ninja`, GTK 3 for `flutter build linux` |
+| Tool versions | [`mise`](https://mise.jdx.dev): installs python, node, java, postgres, kubectl, uv, helm, gh and the LSPs from [`config/mise.toml`](./src/config/mise.toml); a project's `mise.toml` (or `.nvmrc`) pins its own |
 | Containers | `docker` CLI + `compose` + `buildx`, using the host daemon through the mounted socket (docker-outside-of-docker), `kubectl` 1.37, `helm` |
 | Database | PostgreSQL 18 client tools (`psql`, `pg_dump`…); the server runs as a compose service |
 | Misc | `jq`, `nano`, `less`, `wget`, `zip`, `rsync`, `make`, `curl`, `openssh-client`, Debian's Chromium (headless and isolated, sized as a Xiaomi Redmi 12, for the Chrome DevTools MCP) |
-| Claude Code | `claude` + plugins: ponytail, mattpocock-skills, frontend-design, code-review, chrome-devtools-mcp, and the LSP plugins for TypeScript, Pyright and rust-analyzer (their servers are in the image) |
+| Claude Code | `claude` + plugins: ponytail, mattpocock-skills, frontend-design, code-review, chrome-devtools-mcp, dart-flutter (the Dart and Flutter MCP server and the official skills), and the LSP plugins for TypeScript, Pyright and rust-analyzer (their servers are in the image) |
 
 ## Terminal setup (dotfiles)
 
@@ -48,10 +49,12 @@ Without it the container works the same, with a plain fish.
   attaches as `devcontainer` separately.
 - **Everything in the home, at default locations, owned by `devcontainer`**, so
   installing another version needs no sudo: mise's tools in `~/.local/share/mise`,
-  Rust in `~/.rustup` and `~/.cargo`.
+  Rust in `~/.rustup` and `~/.cargo`, Flutter in `~/.local/share/flutter`, the
+  Android SDK in `~/Android/Sdk` (Android Studio's default).
 - **Toolchains via mise.** [`config/mise.toml`](./src/config/mise.toml) is copied
   to `/etc/mise/config.toml` and installed at build time: python, node, postgres,
-  kubectl, uv, helm, the docker CLI and plugins, and the language servers. mise merges it with the user's config (the dotfiles'
+  java, kubectl, uv, helm, gh, the docker CLI and plugins, and the language
+  servers. mise merges it with the user's config (the dotfiles'
   terminal tools) and a project's `mise.toml`. Its shims are on `PATH`, so
   non-interactive shells (Claude's Bash tool, compose commands) get the tools and
   honor a project's pinned versions; interactive fish activates mise and switches
@@ -62,10 +65,19 @@ Without it the container works the same, with a plain fish.
   otherwise.
 - **Rust via rustup**, its own manager (Debian's `rustc` is frozen per release,
   1.85 on Trixie).
+- **Flutter and the Android SDK.** Flutter is a clone of the stable channel and
+  writes its own `bin/cache`. The SDK has the cmdline-tools (a pinned build,
+  `ANDROID_CMDLINE_TOOLS`: Google has no "latest" URL) and its `android` CLI, which
+  replaced `sdkmanager` and accepts the licenses on install; the
+  platform-tools, and the platform + build-tools this Flutter compiles against;
+  Gradle downloads anything else a project needs (NDK included) on its first build.
+  Java comes from mise (`JAVA_HOME` points at it); `~/.gradle` is a per-project
+  volume. **Windows builds aren't possible here**: Flutter doesn't cross-compile,
+  and `flutter build windows` needs a Windows host with Visual Studio.
 - **Everything tracks latest; a rebuild is the update.** mise, rustup and Claude
-  Code come from their official install scripts. Pinned in `mise.toml`: Python
-  3.15, Node 26, Postgres 18 (to match the server) and kubectl 1.37 (to match the
-  cluster); a rebuild takes their latest patch.
+  Code come from their official install scripts, Flutter from its stable branch.
+  Pinned in `mise.toml`: Python 3.15, Node 26, Java 21, Postgres 18 (to match the
+  server) and kubectl 1.37 (to match the cluster); a rebuild takes their latest patch.
   `make build` passes `--pull`, which refreshes the base image; the cached
   `RUN` layers only move when a layer above them changes.
 - **Claude Code config in a shared volume.** `~/.claude` is the named volume
@@ -95,7 +107,7 @@ extensions, and add a `postCreateCommand` (`uv sync`, `npm install`, …). The c
 two projects left with the same name share them. Keep it set even though Docker
 Compose would derive one: without it, the setup breaks under Podman.
 
-**Volumes.** `fish-history` and service data (`postgres-data`) are per project
+**Volumes.** `fish-history`, `gradle-cache` and service data (`postgres-data`) are per project
 (compose prefixes them). `claude-config` is shared by every project, so it is
 `external`: `docker compose down -v` never deletes it, and the `initializeCommand`
 creates it on the host if it doesn't exist yet.
@@ -110,6 +122,19 @@ run side by side; add `127.0.0.1:` ports when a host tool needs one.
 
 **Project-only tools:** swap `image:` for a small Dockerfile that starts
 `FROM ghcr.io/fhassis/devcontainer:latest` (commented in `compose.yml`).
+
+## Flutter
+
+```bash
+flutter run -d web-server --web-hostname 0.0.0.0 --web-port 8080  # r = hot reload, R = restart
+flutter build apk          # or appbundle; build/app/outputs/...
+flutter build linux        # build/linux/x64/release/bundle, runs on the host
+```
+
+The web server is what the phone's browser opens; Claude can also hot reload it
+through the Dart MCP server. To run on the phone itself (native hot reload), turn
+on *Wireless debugging* (Android 11+) and `adb pair <ip>:<port>` once, then
+`adb connect <ip>:<port>` and `flutter run`.
 
 ## On Windows (Rancher Desktop)
 

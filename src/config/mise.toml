@@ -6,8 +6,9 @@
 # pinned; a rebuild takes the latest patch of each
 python = "3.15"
 node = "26"
-postgres = "18"   # psql, pg_dump...: match the server's major
-kubectl = "1.37"  # match the cluster
+postgres = "18"     # psql, pg_dump...: match the server's major
+kubectl = "1.37"    # match the cluster
+java = "temurin-21" # Gradle (Android builds); JAVA_HOME points at it
 # rolling
 uv = "latest"
 helm = "latest"

@@ -7,6 +7,7 @@ services:
       # Parent folder, so sibling repos are reachable.
       - ../..:/workspaces:cached
       - fish-history:/home/devcontainer/.local/share/fish
+      - gradle-cache:/home/devcontainer/.gradle
       - claude-config:/home/devcontainer/.claude
       - /var/run/docker.sock:/var/run/docker.sock
 
@@ -47,6 +48,7 @@ services:
 
 volumes:
   fish-history:
+  gradle-cache:
   # Shared by all projects; external so `down -v` never deletes it.
   claude-config:
     external: true
