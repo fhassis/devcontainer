@@ -9,15 +9,29 @@ extensions, extra services, project-only tools) in their `devcontainer.json`.
 
 | Group | Tools |
 | :--- | :--- |
-| Shell & prompt | `fish`, `starship` (nerd-fonts preset), `tmux`, and the workstation's fish setup: `eza` (`ls`/`la`), `bat` (`cat`, `MANPAGER`), `fzf` (Ctrl+T/R, Alt+C, `f`), `zoxide` (`z`/`zi`) |
+| Shell | `fish` (login shell), `tmux`. Prompt, fzf, zoxide, nvim, theme… come from [dotfiles](#terminal-setup-dotfiles) |
 | Version control | `git` |
-| Languages | Python 3.15 via `uv` (+`uvx`), Node 26 via `fnm` (+`npm`/`npx`), Rust stable (`rustup`, `cargo`, `clippy`, `rustfmt`) |
-| Containers | `docker` CLI + `dockerd` (outside-of-docker with a mounted socket, docker-in-docker when privileged) |
+| Languages | Python 3.15 via `uv` (+`uvx`), Node 26 (+`npm`/`npx`), Rust stable (`rustup`, `cargo`, `clippy`, `rustfmt`) |
+| Tool versions | [`mise`](https://mise.jdx.dev): installs node, uv, kubectl, helm and the LSPs from [`config/mise.toml`](./src/config/mise.toml); a project's `mise.toml` (or `.nvmrc`) pins its own |
+| Containers | `docker` CLI + `dockerd` (outside-of-docker with a mounted socket, docker-in-docker when privileged), `kubectl`, `helm` |
 | Database | `postgresql-client-18` (`psql`) |
 | Misc | `jq`, `nano`, `less`, `wget`, `zip`, `rsync`, `make`, `curl`, `openssh-client`, Debian's Chromium (headless and isolated, sized as a Xiaomi Redmi 12, for the Chrome DevTools MCP) |
 | Claude Code | `claude` + plugins: ponytail, mattpocock-skills, frontend-design, code-review, chrome-devtools-mcp, and the LSP plugins for TypeScript, Pyright and rust-analyzer (their servers are in the image) |
 
-fish completions are pre-generated for uv, docker, rustup and fnm (cargo's ship with fish).
+## Terminal setup (dotfiles)
+
+The image ships the tools, not the terminal's look and feel. That comes from the
+[dotfiles](https://github.com/fhassis/dotfiles) repo, which VS Code clones into
+every new container and installs (`~/dotfiles/install.sh`: fish config, starship,
+fzf, zoxide, eza, bat, nvim, delta, Catppuccin, fish completions). In your VS Code
+*user* settings:
+
+```jsonc
+"dotfiles.repository": "fhassis/dotfiles",
+"dotfiles.installCommand": "install.sh"
+```
+
+Without it the container works the same, with a plain fish.
 
 ## Design notes
 
@@ -30,24 +44,29 @@ fish completions are pre-generated for uv, docker, rustup and fnm (cargo's ship 
 - **docker-in-docker.** With no socket mounted and a privileged container, the
   entrypoint starts `dockerd` and drops to `devcontainer` via `gosu` (mount
   `/var/lib/docker` as a volume).
-- **Base `debian:trixie-slim`, Python from uv.** `uv python install --default`
-  puts the `PYTHON_VERSION` build's `python` / `python3` in `/usr/local/share/uv/bin`,
-  on `PATH`, so every shell (Claude's Bash tool included) has Python. uv uses only
-  its managed Pythons (`UV_PYTHON_PREFERENCE=only-managed`) and downloads the one a
-  project's `.python-version` asks for on `uv sync`. Both dirs are owned by
-  `devcontainer`, so no sudo.
-- **Everything tracks latest; a rebuild is the update.** uv, fnm, rustup
-  and Claude Code come from their official install scripts. Pinned, as build args:
-  the Postgres client major (`PG_MAJOR`, to match the server), Python's minor
-  (`PYTHON_VERSION`, 3.15) and Node's major (`NODE_VERSION`, 26); a rebuild takes
-  their latest patch. `make image-build` passes `--pull`, which refreshes the base
-  image; the cached `RUN` layers only move when a layer above them changes.
-- **Node via fnm.** fnm's `default` alias is on `PATH`, so non-interactive
-  shells (Claude's Bash tool, compose commands) get Node 26; interactive fish
-  also switches to a project's `.node-version` / `.nvmrc` on `cd`.
-- **Rust** lives in `/usr/local/{rustup,cargo}`, owned by `devcontainer`, so
-  `cargo install` and `rustup update` work without sudo. Debian's own `rustc`
-  package is frozen per release (1.85 on Trixie).
+- **Everything in the home, at default locations, owned by `devcontainer`**, so
+  installing another version needs no sudo: mise's tools in `~/.local/share/mise`,
+  uv's Pythons in `~/.local/share/uv`, Rust in `~/.rustup` and `~/.cargo`.
+- **Toolchains via mise.** [`config/mise.toml`](./src/config/mise.toml) is copied
+  to `/etc/mise/config.toml` and installed at build time: node, uv, kubectl, helm
+  and the language servers. mise merges it with the user's config (the dotfiles'
+  terminal tools) and a project's `mise.toml`. Its shims are on `PATH`, so
+  non-interactive shells (Claude's Bash tool, compose commands) get the tools and
+  honor a project's pinned versions; interactive fish activates mise and switches
+  on `cd`. A project's `.nvmrc` / `.node-version` is read too.
+- **Python from uv.** mise installs uv; `uv python install --default` puts the
+  `PYTHON_VERSION` build's `python` / `python3` in `~/.local/bin`, on `PATH`, so
+  every shell has Python. uv uses only its managed Pythons
+  (`UV_PYTHON_PREFERENCE=only-managed`) and downloads the one a project's
+  `.python-version` asks for on `uv sync`.
+- **Rust via rustup**, its own manager (Debian's `rustc` is frozen per release,
+  1.85 on Trixie).
+- **Everything tracks latest; a rebuild is the update.** mise, rustup and Claude
+  Code come from their official install scripts. Pinned: the Postgres client major
+  (`PG_MAJOR`, to match the server), Python's minor (`PYTHON_VERSION`, 3.15) and
+  Node's major (26, in `mise.toml`); a rebuild takes their latest patch.
+  `make image-build` passes `--pull`, which refreshes the base image; the cached
+  `RUN` layers only move when a layer above them changes.
 - **Claude Code config in a shared volume.** `~/.claude` is the named volume
   `claude-config`, shared by every project: one `/login`, the same settings and
   plugins. `CLAUDE_CONFIG_DIR` points at it, so `.claude.json` lives there too.

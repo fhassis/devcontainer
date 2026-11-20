@@ -1,0 +1,17 @@
+# Development toolchains, installed at build time for the `devcontainer` user
+# (into ~/.local/share/mise). Copied to /etc/mise/config.toml: mise merges it
+# with the user's ~/.config/mise/config.toml (terminal tools, from dotfiles)
+# and a project's mise.toml, which can pin other versions.
+[tools]
+node = "26"
+uv = "latest"
+kubectl = "latest"
+helm = "latest"
+# language servers for the Claude Code LSP plugins
+"npm:typescript" = "latest"
+"npm:typescript-language-server" = "latest"
+"npm:pyright" = "latest"
+
+[settings]
+# projects that pin node with .nvmrc / .node-version
+idiomatic_version_file_enable_tools = ["node"]
