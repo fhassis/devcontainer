@@ -66,7 +66,7 @@ RUN \
  # ---- fish-history volume's mount point, owned by the user ----
  && mkdir -p ~/.local/share/fish \
  # ---- cleanup ----
- && rm /tmp/mise.sh /tmp/rustup.sh /tmp/claude.sh
+ && rm -rf /tmp/mise.sh /tmp/rustup.sh /tmp/claude.sh ~/.cache/mise
 
 # ---- container runtime: root as PID 1 (VS Code attaches as `devcontainer`) ----
 USER root
