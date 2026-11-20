@@ -11,6 +11,9 @@ HERE=$(cd "$(dirname "$0")" && pwd)
 engine=
 if ! command -v docker >/dev/null 2>&1; then engine=--docker-engine; fi
 sudo sh "$HERE/src/scripts/install-system.sh" $engine
+if [ -n "${WSL_DISTRO_NAME:-}" ]; then
+    sudo sh "$HERE/src/scripts/wsl-fixes.sh"
+fi
 if [ -n "$engine" ] && ! id -nG | grep -qw docker; then
     sudo usermod -aG docker "$USER"
     relogin="yes"

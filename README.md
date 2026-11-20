@@ -13,7 +13,7 @@ image is built by the same scripts.
 | | How | What runs |
 |---|---|---|
 | **Devcontainer** | the image, `ghcr.io/fhassis/devcontainer` | the Dockerfile runs `src/scripts/install-system.sh --container` (root) and `src/scripts/install-tools.sh --container` (user) |
-| **Workstation** (Debian/Ubuntu, native or WSL) | `./install.sh` | `install-system.sh` with sudo, then `install-tools.sh` |
+| **Workstation** (Debian/Ubuntu, native or WSL) | `./install.sh` | `install-system.sh` (+ `wsl-fixes.sh` on WSL) with sudo, then `install-tools.sh` |
 
 ```sh
 git clone https://github.com/fhassis/devcontainer ~/devcontainer
@@ -25,6 +25,9 @@ git clone https://github.com/fhassis/devcontainer ~/devcontainer
   own apt repo: the CLI with the compose and buildx plugins in the image (the daemon
   is the host's), the full Docker Engine on a workstation that has no `docker` yet.
   One already there (Rancher Desktop, Docker Desktop…) is left alone.
+- [`src/scripts/wsl-fixes.sh`](./src/scripts/wsl-fixes.sh) (root, WSL only): what
+  Ubuntu's WSL image does and Debian's doesn't. Today one fix: Windows programs
+  (`.exe`) keep running under systemd (`/etc/binfmt.d/WSLInterop.conf`).
 - [`src/scripts/install-tools.sh`](./src/scripts/install-tools.sh) (user, no sudo, all in the home):
   the toolchains in [`config/mise.toml`](./src/config/mise.toml), Rust, Claude Code +
   plugins, chrome-devtools-mcp's config. `kubectl` and `helm` already on `PATH`
