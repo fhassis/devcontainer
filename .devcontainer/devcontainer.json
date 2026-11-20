@@ -4,8 +4,8 @@
 	"service": "devcontainer",
 	// Profiled services to start with compose. Comment if not want them.
 	"runServices": ["postgres"],
-	// claude-config is external in compose.yml; create it if missing.
-	"initializeCommand": "docker volume create claude-config",
+	// The shared volumes are external in compose.yml; create them if missing.
+	"initializeCommand": "docker volume create claude-config && docker volume create android-sdk && docker volume create gradle-cache",
 	"remoteUser": "devcontainer",
 	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
 	"customizations": {

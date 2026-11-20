@@ -69,19 +69,15 @@ RUN \
  && flutter config --no-analytics \
  && dart --disable-analytics \
  # ---- Android SDK, with the `android` CLI (sdkmanager's replacement; it unpacks
- #      itself into ~/.android on first run, and accepts the licenses on install):
- #      platform-tools and the platform + build-tools this Flutter compiles
- #      against. Gradle fetches anything else a project needs, NDK included ----
+ #      itself into ~/.android on first run): only platform-tools (adb), whose
+ #      install also accepts the SDK license. Gradle installs exactly the platform,
+ #      build-tools and NDK each project needs on its first build ----
  && $DL "https://dl.google.com/android/repository/commandlinetools-linux-${ANDROID_CMDLINE_TOOLS}_latest.zip" -o /tmp/cmdline-tools.zip \
  && unzip -q /tmp/cmdline-tools.zip -d /tmp/cmdline-tools \
  && mkdir -p "$ANDROID_HOME/cmdline-tools" \
  && mv /tmp/cmdline-tools/cmdline-tools "$ANDROID_HOME/cmdline-tools/latest" \
  && echo --no-metrics > ~/.androidrc \
- && sdk=$(sed -n 's/.*val compileSdkVersion: Int = \([0-9]*\).*/\1/p' \
-      "$FLUTTER_ROOT/packages/flutter_tools/gradle/src/main/kotlin/FlutterExtension.kt") \
- && { [ -n "$sdk" ] || { echo "compileSdkVersion not found in Flutter's FlutterExtension.kt" >&2; exit 1; }; } \
- && bt=$(android sdk list --all "build-tools/$sdk*" | awk '$1 ~ /^build-tools\// {print $1}' | grep -v -- -rc | sort -V | tail -1) \
- && android sdk install platform-tools "platforms/android-$sdk" "$bt" >/dev/null \
+ && android sdk install platform-tools >/dev/null \
  && flutter precache --web --android --linux \
  # ---- Claude Code CLI (terminal `claude`) ----
  && $DL https://claude.ai/install.sh -o /tmp/claude.sh \

@@ -66,13 +66,18 @@ Without it the container works the same, with a plain fish.
 - **Rust via rustup**, its own manager (Debian's `rustc` is frozen per release,
   1.85 on Trixie).
 - **Flutter and the Android SDK.** Flutter is a clone of the stable channel and
-  writes its own `bin/cache`. The SDK has the cmdline-tools (a pinned build,
-  `ANDROID_CMDLINE_TOOLS`: Google has no "latest" URL) and its `android` CLI, which
-  replaced `sdkmanager` and accepts the licenses on install; the
-  platform-tools, and the platform + build-tools this Flutter compiles against;
-  Gradle downloads anything else a project needs (NDK included) on its first build.
-  Java comes from mise (`JAVA_HOME` points at it); `~/.gradle` is a per-project
-  volume. **Windows builds aren't possible here**: Flutter doesn't cross-compile,
+  writes its own `bin/cache`. The SDK has only the cmdline-tools (a pinned build,
+  `ANDROID_CMDLINE_TOOLS`: Google has no "latest" URL, with the `android` CLI that
+  replaced `sdkmanager`) and the platform-tools (`adb`), whose install accepts the
+  SDK license. The platform, build-tools and NDK are the project's Gradle setup's
+  call, so Gradle installs exactly those on the first build instead of the image
+  guessing them. `~/Android/Sdk` is the `android-sdk` volume, shared by every
+  project: a download (the NDK is ~1 GB) happens once per machine. Docker seeds it
+  from the image on first mount only, so newer cmdline-tools in the image need
+  `docker volume rm android-sdk`.
+  Java comes from mise (`JAVA_HOME` points at it); `~/.gradle` is the shared
+  `gradle-cache` volume (Gradle locks it, so projects can use it at once).
+  **Windows builds aren't possible here**: Flutter doesn't cross-compile,
   and `flutter build windows` needs a Windows host with Visual Studio.
 - **Everything tracks latest; a rebuild is the update.** mise, rustup and Claude
   Code come from their official install scripts, Flutter from its stable branch.
@@ -107,10 +112,10 @@ extensions, and add a `postCreateCommand` (`uv sync`, `npm install`, …). The c
 two projects left with the same name share them. Keep it set even though Docker
 Compose would derive one: without it, the setup breaks under Podman.
 
-**Volumes.** `fish-history`, `gradle-cache` and service data (`postgres-data`) are per project
-(compose prefixes them). `claude-config` is shared by every project, so it is
-`external`: `docker compose down -v` never deletes it, and the `initializeCommand`
-creates it on the host if it doesn't exist yet.
+**Volumes.** `fish-history` and service data (`postgres-data`) are per project
+(compose prefixes them). `claude-config`, `android-sdk` and `gradle-cache` are
+shared by every project, so they are `external`: `docker compose down -v` never deletes them, and
+the `initializeCommand` creates them on the host if they don't exist yet.
 
 **Extra services** sit behind a compose `profile`, so copying the folder doesn't start
 them. Turn one on with `"runServices": ["postgres"]` in

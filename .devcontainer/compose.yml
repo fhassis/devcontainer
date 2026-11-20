@@ -9,6 +9,7 @@ services:
       - fish-history:/home/devcontainer/.local/share/fish
       - gradle-cache:/home/devcontainer/.gradle
       - claude-config:/home/devcontainer/.claude
+      - android-sdk:/home/devcontainer/Android/Sdk
       - /var/run/docker.sock:/var/run/docker.sock
 
   # Optional; enable via runServices in devcontainer.json. Reach it as postgres:5432.
@@ -48,9 +49,12 @@ services:
 
 volumes:
   fish-history:
-  gradle-cache:
-  # Shared by all projects; external so `down -v` never deletes it.
+  # Shared by all projects; external so `down -v` never deletes them.
   claude-config:
+    external: true
+  android-sdk:
+    external: true
+  gradle-cache:
     external: true
   postgres-data:
   pgadmin-data:
