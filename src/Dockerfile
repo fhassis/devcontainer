@@ -36,7 +36,7 @@ RUN useradd -m -u 1000 -U -s /bin/bash devcontainer \
 
 # ---- global configs ----
 COPY config/mise.toml /etc/mise/config.toml
-COPY --chown=devcontainer:devcontainer --chmod=644 config/chrome-devtools-mcp.json /home/devcontainer/.config/cd4a/config.json
+COPY --chown=devcontainer:devcontainer config/chrome-devtools-mcp.json /home/devcontainer/.config/cd4a/config.json
 
 # ---- the rest as the non-root user ----
 USER devcontainer
