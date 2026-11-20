@@ -1,0 +1,7 @@
+# Debian packages, installed by scripts/install-system.sh (as root) on the image and on
+# a workstation. Docker comes from Docker's own repo, also in install-system.sh.
+curl ca-certificates unzip xz-utils git openssh-client make jq nano less wget zip rsync
+# the C linker rustc needs
+gcc libc6-dev
+# for chrome-devtools-mcp (a Claude plugin, see scripts/install-tools.sh)
+chromium

@@ -5,6 +5,35 @@ its own `dev` Dockerfile stage that re-installs the same toolchain, projects
 reference this image and add only their project-specific bits (VS Code
 extensions, extra services, project-only tools) in their `devcontainer.json`.
 
+The same tools also install straight on a workstation, without containers: the
+image is built by the same scripts.
+
+## With or without devcontainers
+
+| | How | What runs |
+|---|---|---|
+| **Devcontainer** | the image, `ghcr.io/fhassis/devcontainer` | the Dockerfile runs `src/scripts/install-system.sh --container` (root) and `src/scripts/install-tools.sh --container` (user) |
+| **Workstation** (Debian/Ubuntu, native or WSL) | `./install.sh` | `install-system.sh` with sudo, then `install-tools.sh` |
+
+```sh
+git clone https://github.com/fhassis/devcontainer ~/devcontainer
+~/devcontainer/install.sh      # run it again after a pull: it is idempotent
+```
+
+- [`src/scripts/install-system.sh`](./src/scripts/install-system.sh) (root): the Debian packages in
+  [`config/apt-packages.txt`](./src/config/apt-packages.txt) and Docker from Docker's
+  own apt repo: the CLI with the compose and buildx plugins in the image (the daemon
+  is the host's), the full Docker Engine on a workstation that has no `docker` yet.
+  One already there (Rancher Desktop, Docker Desktop…) is left alone.
+- [`src/scripts/install-tools.sh`](./src/scripts/install-tools.sh) (user, no sudo, all in the home):
+  the toolchains in [`config/mise.toml`](./src/config/mise.toml), Rust, Claude Code +
+  plugins, chrome-devtools-mcp's config. `kubectl` and `helm` already on `PATH`
+  outside mise (Rancher Desktop's, say) stay in charge: mise skips them on that
+  machine (`~/.config/mise/conf.d/local.toml`).
+
+The terminal (fish, prompt, fzf, nvim…) is a separate layer: the
+[dotfiles](https://github.com/fhassis/dotfiles) repo, on a workstation and in containers.
+
 ## Toolbelt
 
 | Group | Tools |
@@ -12,8 +41,9 @@ extensions, extra services, project-only tools) in their `devcontainer.json`.
 | Shell | `bash` (login shell). The terminal (fish, tmux, prompt, fzf, zoxide, nvim, theme…) comes from [dotfiles](#terminal-setup-dotfiles) |
 | Version control | `git` |
 | Languages | Python 3.15 (+`uv`/`uvx`), Node 26 (+`npm`/`npx`), Rust stable (`rustup`, `cargo`, `clippy`, `rustfmt`) |
-| Tool versions | [`mise`](https://mise.jdx.dev): installs python, node, postgres, kubectl, uv, helm and the LSPs from [`config/mise.toml`](./src/config/mise.toml); a project's `mise.toml` (or `.nvmrc`) pins its own |
-| Containers | `docker` CLI + `compose` + `buildx`, using the host daemon through the mounted socket (docker-outside-of-docker), `kubectl` 1.37, `helm` |
+| Tool versions | [`mise`](https://mise.jdx.dev): installs python, node, postgres, kubectl, uv, helm, gh and the LSPs from [`config/mise.toml`](./src/config/mise.toml); a project's `mise.toml` (or `.nvmrc`) pins its own |
+| Containers | `docker` CLI + `compose` + `buildx` (Docker's apt repo), using the host daemon through the mounted socket (docker-outside-of-docker), `kubectl` 1.37, `helm` |
+| GitHub | `gh` |
 | Database | PostgreSQL 18 client tools (`psql`, `pg_dump`…); the server runs as a compose service |
 | Misc | `jq`, `nano`, `less`, `wget`, `zip`, `rsync`, `make`, `curl`, `openssh-client`, Debian's Chromium (headless and isolated, sized as a Xiaomi Redmi 12, for the Chrome DevTools MCP) |
 | Claude Code | `claude` + plugins: ponytail, mattpocock-skills, frontend-design, code-review, chrome-devtools-mcp, and the LSP plugins for TypeScript, Pyright and rust-analyzer (their servers are in the image) |
@@ -41,7 +71,7 @@ Without it the container works the same, with a plain fish.
   VS Code's terminal opens `~/.local/bin/fish` (installed by the dotfiles), or
   bash when it isn't there.
 - **docker-outside-of-docker only.** The image has no daemon: the Docker CLI
-  (with the compose and buildx plugins, all from mise) talks to the *host* daemon
+  (with the compose and buildx plugins, from Docker's repo) talks to the *host* daemon
   (Rancher Desktop, or Docker on Linux) via the mounted `/var/run/docker.sock`.
   The entrypoint runs as root (PID 1) to align the in-container `docker` group GID
   with that socket, so the non-root user uses `docker` without sudo; VS Code
@@ -49,17 +79,18 @@ Without it the container works the same, with a plain fish.
 - **Everything in the home, at default locations, owned by `devcontainer`**, so
   installing another version needs no sudo: mise's tools in `~/.local/share/mise`,
   Rust in `~/.rustup` and `~/.cargo`.
-- **Toolchains via mise.** [`config/mise.toml`](./src/config/mise.toml) is copied
-  to `/etc/mise/config.toml` and installed at build time: python, node, postgres,
-  kubectl, uv, helm, the docker CLI and plugins, and the language servers. mise merges it with the user's config (the dotfiles'
-  terminal tools) and a project's `mise.toml`. Its shims are on `PATH`, so
+- **Toolchains via mise.** `install-tools.sh` copies [`config/mise.toml`](./src/config/mise.toml)
+  to `~/.config/mise/conf.d/dev.toml` and installs it: python, node, postgres,
+  kubectl, uv, helm, gh and the language servers. mise merges it with the user's
+  config (the dotfiles' terminal tools) and a project's `mise.toml`. In the image its
+  shims are on `PATH`, so
   non-interactive shells (Claude's Bash tool, compose commands) get the tools and
   honor a project's pinned versions; interactive fish activates mise and switches
   on `cd`. A project's `.nvmrc` / `.node-version` is read too.
 - **Python from mise, reused by uv.** mise installs a prebuilt Python (the same
-  python-build-standalone builds uv uses). With `UV_PYTHON_PREFERENCE=managed`, uv
-  reuses it when a project's `.python-version` matches, and downloads its own
-  otherwise.
+  python-build-standalone builds uv uses). uv (by default, `python-preference =
+  managed`) reuses it when a project's `.python-version` matches, and downloads its
+  own otherwise.
 - **Rust via rustup**, its own manager (Debian's `rustc` is frozen per release,
   1.85 on Trixie).
 - **Everything tracks latest; a rebuild is the update.** mise, rustup and Claude
@@ -75,8 +106,9 @@ Without it the container works the same, with a plain fish.
   image later need `claude plugin install` (or `docker volume rm claude-config`).
   Don't bind the host's `~/.claude`: it hides the image's plugins and carries
   host paths (e.g. `C:\...` from Windows).
-- **apt only for Debian's own packages** (git, gcc, chromium…), in one layer with
-  no third-party repos; everything versioned comes from mise.
+- **apt for Debian's own packages** (git, gcc, chromium…) and Docker (from Docker's
+  repo); everything else versioned comes from mise. In the image, the apt layer and
+  the user's tools layer are separate, so a change to `mise.toml` doesn't redo apt.
 
 ## Using it in a project
 
