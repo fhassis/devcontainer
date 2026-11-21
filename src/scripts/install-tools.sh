@@ -28,6 +28,20 @@ if ! command -v mise >/dev/null; then
 fi
 mkdir -p ~/.config/mise/conf.d
 cp "$HERE/config/mise.toml" ~/.config/mise/conf.d/dev.toml
+# kubectl/helm already on PATH outside mise (e.g. Rancher Desktop's) stay in
+# charge: mise skips them on this machine
+nomise=$(printf %s "$PATH" | tr : '\n' | grep -v '/mise/' | paste -sd:)
+skip=()
+for t in kubectl helm; do
+    if (PATH=$nomise; command -v "$t" >/dev/null); then skip+=("\"$t\""); fi
+done
+if [ ${#skip[@]} -gt 0 ]; then
+    say "using the existing ${skip[*]}"
+    printf '# written by install-tools.sh: these exist outside mise here\n[settings]\ndisable_tools = [%s]\n' \
+        "$(IFS=,; echo "${skip[*]}")" > ~/.config/mise/conf.d/local.toml
+else
+    rm -f ~/.config/mise/conf.d/local.toml
+fi
 say "installing the mise toolchains"
 mise install
 

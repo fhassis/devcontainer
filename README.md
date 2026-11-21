@@ -23,13 +23,16 @@ git clone https://github.com/fhassis/devcontainer ~/devcontainer
 - [`src/scripts/install-system.sh`](./src/scripts/install-system.sh) (root): the Debian packages in
   [`config/apt-packages.txt`](./src/config/apt-packages.txt) and Docker from Docker's
   own apt repo: the CLI with the compose and buildx plugins in the image (the daemon
-  is the host's), the full Docker Engine on a workstation.
+  is the host's), the full Docker Engine on a workstation that has no `docker` yet.
+  One already there (Rancher Desktop, Docker Desktop…) is left alone.
 - [`src/scripts/wsl-fixes.sh`](./src/scripts/wsl-fixes.sh) (root, WSL only): what
   Ubuntu's WSL image does and Debian's doesn't. Today one fix: Windows programs
   (`.exe`) keep running under systemd (`/etc/binfmt.d/WSLInterop.conf`).
 - [`src/scripts/install-tools.sh`](./src/scripts/install-tools.sh) (user, no sudo, all in the home):
   the toolchains in [`config/mise.toml`](./src/config/mise.toml), Rust, Claude Code +
-  plugins, chrome-devtools-mcp's config.
+  plugins, chrome-devtools-mcp's config. `kubectl` and `helm` already on `PATH`
+  outside mise (Rancher Desktop's, say) stay in charge: mise skips them on that
+  machine (`~/.config/mise/conf.d/local.toml`).
 
 The terminal (fish, prompt, fzf, nvim…) is a separate layer: the
 [dotfiles](https://github.com/fhassis/dotfiles) repo, on a workstation and in containers.
