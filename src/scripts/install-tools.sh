@@ -14,6 +14,13 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 say() { printf '\033[1;35m==>\033[0m %s\n' "$*"; }
 
+# ---- Rust (rustup), before mise: its cargo: tools build with cargo ----
+if ! command -v rustup >/dev/null; then
+    say "installing Rust"
+    $DL https://sh.rustup.rs -o "$tmp/rustup.sh"
+    sh "$tmp/rustup.sh" -y --no-modify-path --profile minimal -c clippy,rustfmt,rust-analyzer
+fi
+
 # ---- mise toolchains ----
 if ! command -v mise >/dev/null; then
     say "installing mise"
@@ -21,29 +28,8 @@ if ! command -v mise >/dev/null; then
 fi
 mkdir -p ~/.config/mise/conf.d
 cp "$HERE/config/mise.toml" ~/.config/mise/conf.d/dev.toml
-# kubectl/helm already on PATH outside mise (e.g. Rancher Desktop's) stay in
-# charge: mise skips them on this machine
-nomise=$(printf %s "$PATH" | tr : '\n' | grep -v '/mise/' | paste -sd:)
-skip=()
-for t in kubectl helm; do
-    if (PATH=$nomise; command -v "$t" >/dev/null); then skip+=("\"$t\""); fi
-done
-if [ ${#skip[@]} -gt 0 ]; then
-    say "using the existing ${skip[*]}"
-    printf '# written by install-tools.sh: these exist outside mise here\n[settings]\ndisable_tools = [%s]\n' \
-        "$(IFS=,; echo "${skip[*]}")" > ~/.config/mise/conf.d/local.toml
-else
-    rm -f ~/.config/mise/conf.d/local.toml
-fi
 say "installing the mise toolchains"
 mise install
-
-# ---- Rust (rustup) ----
-if ! command -v rustup >/dev/null; then
-    say "installing Rust"
-    $DL https://sh.rustup.rs -o "$tmp/rustup.sh"
-    sh "$tmp/rustup.sh" -y --no-modify-path --profile minimal -c clippy,rustfmt,rust-analyzer
-fi
 
 # ---- Claude Code CLI (terminal `claude`) + plugins ----
 if ! command -v claude >/dev/null; then

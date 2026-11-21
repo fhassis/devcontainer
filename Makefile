@@ -3,8 +3,7 @@
 IMAGE := ghcr.io/fhassis/devcontainer
 TAG ?= latest
 
-# Docker login to ghcr.io with the GitHub CLI's token. Once per machine:
-#   winget install --id GitHub.cli -e          (Windows; on Linux, your package manager)
+# Docker login to ghcr.io with the GitHub CLI's token (gh from mise). Once per machine:
 #   gh auth login                              (GitHub.com, SSH, browser)
 #   gh auth refresh -s write:packages,read:packages
 login:

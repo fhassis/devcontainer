@@ -4,8 +4,8 @@
 #
 # Why this exists: the mounted /var/run/docker.sock belongs to a host group whose
 # GID changes per machine:
-#  - Rancher Desktop (WSL): GID 101, which in the image is already `_ssh`
-#  - Docker on native Linux: usually 999, 984... depends on the distro
+#  - Docker Engine (native Linux or WSL): usually 999, 984... depends on the distro,
+#    and it may already be taken in the image (101 is `_ssh`)
 # `devcontainer` can only use `docker` without sudo if it is in a group with that
 # GID, and the GID is only known once the container runs. So, as root, at start:
 # renumber the `docker` group to the socket's GID, or, if another group already
@@ -13,7 +13,7 @@
 #
 # Alternatives, all worse:
 #  - `group_add` in compose: a fixed GID in compose.yml (or a variable set on each
-#    host); no longer portable between Rancher and Linux
+#    host); no longer portable between machines
 #  - `chmod 666` on the socket: any process could drive the host's Docker
 #  - running the container as root: loses the non-root user
 if [ -S /var/run/docker.sock ]; then
