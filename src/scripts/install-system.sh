@@ -25,6 +25,11 @@ apt-get update -qq
 # shellcheck disable=SC2046
 apt-get install -y --no-install-recommends $(sed 's/#.*//' "$HERE/config/apt-packages.txt")
 
+# ---- *.localhost through glibc: the package adds `myhostname` to nsswitch on most
+#      installs; make sure, ahead of dns so a name never leaves the machine ----
+grep -Eq '^hosts:.*\bmyhostname\b' /etc/nsswitch.conf ||
+    sed -i -E 's/^(hosts:[[:space:]]+files)/\1 myhostname/' /etc/nsswitch.conf
+
 # ---- Docker, from Docker's repo (debian or ubuntu, per /etc/os-release) ----
 if [ "$docker" != none ]; then
     . /etc/os-release

@@ -5,3 +5,8 @@ curl ca-certificates unzip xz-utils git openssh-client make jq nano less wget zi
 gcc libc6-dev
 # for chrome-devtools-mcp (a Claude plugin, see scripts/install-tools.sh)
 chromium
+# *.localhost to the loopback for every program, not only curl and the browsers, which
+# resolve it themselves (glibc does not without it): the local cluster's https://<app>.fhassis.localhost
+libnss-myhostname
+# certutil, so infra-k8s's dev-cert:install can trust its CA in the NSS store Chrome reads on Linux
+libnss3-tools
