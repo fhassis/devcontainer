@@ -1,0 +1,18 @@
+# Tasks to build and publish the image (`mise tasks` lists them). The image's own
+# toolchain config is src/config/mise.toml, not this file.
+[env]
+IMAGE = "ghcr.io/fhassis/devcontainer"
+
+[tasks.login]
+description = "Log Docker in to ghcr.io with the GitHub CLI's token (once per machine)"
+run = "gh auth token | docker login ghcr.io -u fhassis --password-stdin"
+
+[tasks.build]
+description = "Build the image (--pull refreshes the debian base)"
+usage = 'flag "--tag <tag>" default="latest"'
+run = "docker build --pull -t $IMAGE:${usage_tag} src"
+
+[tasks.push]
+description = "Push the image"
+usage = 'flag "--tag <tag>" default="latest"'
+run = "docker push $IMAGE:${usage_tag}"

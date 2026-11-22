@@ -8,6 +8,21 @@ extensions, extra services, project-only tools) in their `devcontainer.json`.
 The same tools also install straight on a workstation, without containers: the
 image is built by the same scripts.
 
+## Two repos, one environment
+
+| Repo | Layer | What it installs |
+| :--- | :--- | :--- |
+| [dotfiles](https://github.com/fhassis/dotfiles) | the terminal | fish, starship, fzf, nvim, tmux… and their configs; mise's `~/.config/mise/config.toml` |
+| [devcontainer](https://github.com/fhassis/devcontainer) | the toolchains, and the image built from them | apt packages, Docker, Python, Node, Rust, kubectl, Claude Code…; mise's `~/.config/mise/conf.d/dev.toml` |
+
+They never install the same thing, and mise merges both configs (plus a project's
+`mise.toml`), so the terminal is the same everywhere:
+
+- **Workstation** (Debian/Ubuntu, native or WSL): run both, in either order.
+  `devcontainer/install.sh` needs sudo, `dotfiles/install.sh` doesn't. Both are idempotent.
+- **Devcontainer:** the image already has the toolchains; VS Code clones the dotfiles
+  into every new container and runs `install.sh`.
+
 ## With or without devcontainers
 
 | | How | What runs |
@@ -33,9 +48,6 @@ git clone https://github.com/fhassis/devcontainer ~/devcontainer
   plugins, chrome-devtools-mcp's config. `kubectl` and `helm` already on `PATH`
   outside mise (Rancher Desktop's, say) stay in charge: mise skips them on that
   machine (`~/.config/mise/conf.d/local.toml`).
-
-The terminal (fish, prompt, fzf, nvim…) is a separate layer: the
-[dotfiles](https://github.com/fhassis/dotfiles) repo, on a workstation and in containers.
 
 ## Toolbelt
 
@@ -100,7 +112,7 @@ Without it the container works the same, with a plain fish.
   Code come from their official install scripts. Pinned in `mise.toml`: Python
   3.15, Node 26, Postgres 18 (to match the server) and kubectl 1.37 (to match the
   cluster), k3d 5; a rebuild takes their latest patch.
-  `make build` passes `--pull`, which refreshes the base image; the cached
+  `mise run build` passes `--pull`, which refreshes the base image; the cached
   `RUN` layers only move when a layer above them changes.
 - **Claude Code config in a shared volume.** `~/.claude` is the named volume
   `claude-config`, shared by every project: one `/login`, the same settings and
@@ -166,7 +178,7 @@ Engine there, and VS Code (with the WSL extension) opens the devcontainer from i
 ## Build & push
 
 From this machine, no CI. The image goes to the GitHub Container Registry,
-`ghcr.io/fhassis/devcontainer`. `make login` logs Docker in with the GitHub CLI's
+`ghcr.io/fhassis/devcontainer`. `mise run login` logs Docker in with the GitHub CLI's
 token; once per machine, set up `gh` (from mise) with the packages scopes:
 
 ```bash
@@ -177,11 +189,11 @@ gh auth refresh -s write:packages,read:packages
 Then:
 
 ```bash
-make login                                # once per machine
-make build                                # local image, :latest
-make build push                           # build + push :latest
-make build push TAG=v2                    # build + push a named tag
+mise run login                            # once per machine
+mise run build                            # local image, :latest
+mise run build && mise run push            # build + push :latest
+mise run build --tag v2 && mise run push --tag v2  # a named tag
 ```
 
-A new package on ghcr.io is private: other machines must `make login` to pull
+A new package on ghcr.io is private: other machines must `mise run login` to pull
 it, or make it public in the package's settings on GitHub.
